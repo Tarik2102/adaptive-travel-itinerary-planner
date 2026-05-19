@@ -4,19 +4,50 @@ import { PreferenceForm } from "@/components/PreferenceForm";
 
 export default function PlannerPage() {
   return (
-    <main style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
-      <Link href="/">← Back to Home</Link>
+    <main className="planner-page">
+      <section className="planner-hero">
+        <div className="page-container planner-hero-inner">
+          <div className="planner-hero-copy">
+            <Link href="/" className="back-link">
+              Back to home
+            </Link>
+            <p className="eyebrow">Planner workspace</p>
+            <h1>Sarajevo Travel Planner</h1>
+            <p>
+              Set a travel window, choose your interests, and review the
+              Sarajevo attractions currently available through the planner API.
+            </p>
+          </div>
 
-      <h1 style={{ marginTop: "1rem" }}>Sarajevo Travel Planner</h1>
+          <div className="planner-status-grid" aria-label="Planner modules">
+            <div>
+              <span>01</span>
+              <strong>Preferences</strong>
+              <p>User profile input</p>
+            </div>
+            <div>
+              <span>02</span>
+              <strong>Attractions</strong>
+              <p>Fetched from API</p>
+            </div>
+            <div>
+              <span>03</span>
+              <strong>Adaptation</strong>
+              <p>Ready for Week 2</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <p>
-        Enter your preferences below. In Week 2, this form will be connected to
-        the recommendation and itinerary generation modules.
-      </p>
+      <section className="page-container planner-layout">
+        <aside className="planner-form-column">
+          <PreferenceForm />
+        </aside>
 
-      <PreferenceForm />
-
-      <AttractionList />
+        <div className="planner-attractions-column">
+          <AttractionList />
+        </div>
+      </section>
     </main>
   );
 }

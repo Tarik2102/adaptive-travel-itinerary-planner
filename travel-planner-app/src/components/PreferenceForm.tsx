@@ -1,25 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
+
+const availableInterests = [
+  "history",
+  "culture",
+  "nature",
+  "architecture",
+  "religion",
+  "museum",
+] as const;
+
+type Interest = (typeof availableInterests)[number];
+type BudgetLevel = "free" | "low" | "medium" | "high";
+type TransportMode = "walking" | "driving";
+type PreferredPace = "relaxed" | "moderate" | "fast";
+
+type PlannerPreferences = {
+  interests: Interest[];
+  startTime: string;
+  endTime: string;
+  budgetLevel: BudgetLevel;
+  transportMode: TransportMode;
+  preferredPace: PreferredPace;
+  maxAttractions: number;
+};
+
+function formatOption(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 export function PreferenceForm() {
-  const [interests, setInterests] = useState<string[]>([]);
+  const [interests, setInterests] = useState<Interest[]>([]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
-  const [budgetLevel, setBudgetLevel] = useState("medium");
-  const [transportMode, setTransportMode] = useState("walking");
-  const [preferredPace, setPreferredPace] = useState("moderate");
+  const [budgetLevel, setBudgetLevel] = useState<BudgetLevel>("medium");
+  const [transportMode, setTransportMode] = useState<TransportMode>("walking");
+  const [preferredPace, setPreferredPace] = useState<PreferredPace>("moderate");
+  const [maxAttractions, setMaxAttractions] = useState(5);
 
-  const availableInterests = [
-    "history",
-    "culture",
-    "nature",
-    "architecture",
-    "religion",
-    "museum",
-  ];
-
-  function toggleInterest(interest: string) {
+  function toggleInterest(interest: Interest) {
     setInterests((previousInterests) =>
       previousInterests.includes(interest)
         ? previousInterests.filter((item) => item !== interest)
@@ -27,127 +47,152 @@ export function PreferenceForm() {
     );
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const preferences = {
+    const preferences: PlannerPreferences = {
       interests,
       startTime,
       endTime,
       budgetLevel,
       transportMode,
       preferredPace,
+      maxAttractions,
     };
 
     console.log("Submitted preferences:", preferences);
 
-    alert("Preference form works. Recommendation will be added in Week 2.");
+    alert("Preferences captured. Recommendation logic will be connected next.");
+  }
+
+  function handleReset() {
+    setInterests([]);
+    setStartTime("09:00");
+    setEndTime("17:00");
+    setBudgetLevel("medium");
+    setTransportMode("walking");
+    setPreferredPace("moderate");
+    setMaxAttractions(5);
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        border: "1px solid #ddd",
-        borderRadius: "8px",
-        padding: "1rem",
-        marginBottom: "2rem",
-      }}
-    >
-      <h2>Plan Your Trip</h2>
+    <form onSubmit={handleSubmit} className="preference-form">
+      <div className="form-header">
+        <p className="eyebrow">Trip preferences</p>
+        <h2>Plan your visit</h2>
+        <p>
+          Tune the form around your available time, preferred pace, budget, and
+          Sarajevo interests.
+        </p>
+      </div>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <label>
-          <strong>Interests</strong>
-        </label>
+      <fieldset className="form-fieldset">
+        <legend>Interests</legend>
 
-        <div style={{ marginTop: "0.5rem" }}>
+        <div className="interest-grid">
           {availableInterests.map((interest) => (
-            <label
-              key={interest}
-              style={{ display: "block", marginBottom: "0.25rem" }}
-            >
+            <label className="interest-option" key={interest}>
               <input
                 type="checkbox"
+                className="interest-checkbox"
                 checked={interests.includes(interest)}
                 onChange={() => toggleInterest(interest)}
-              />{" "}
-              {interest}
+              />
+              <span>{formatOption(interest)}</span>
             </label>
           ))}
         </div>
-      </div>
+      </fieldset>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <label>
-          <strong>Start Time</strong>
+      <div className="form-grid">
+        <label className="field">
+          <span>Start time</span>
+          <input
+            type="time"
+            value={startTime}
+            onChange={(event) => setStartTime(event.target.value)}
+          />
         </label>
-        <br />
-        <input
-          type="time"
-          value={startTime}
-          onChange={(event) => setStartTime(event.target.value)}
-        />
-      </div>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <label>
-          <strong>End Time</strong>
+        <label className="field">
+          <span>End time</span>
+          <input
+            type="time"
+            value={endTime}
+            onChange={(event) => setEndTime(event.target.value)}
+          />
         </label>
-        <br />
-        <input
-          type="time"
-          value={endTime}
-          onChange={(event) => setEndTime(event.target.value)}
-        />
-      </div>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <label>
-          <strong>Budget Level</strong>
+        <label className="field">
+          <span>Budget level</span>
+          <select
+            value={budgetLevel}
+            onChange={(event) =>
+              setBudgetLevel(event.target.value as BudgetLevel)
+            }
+          >
+            <option value="free">Free</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
         </label>
-        <br />
-        <select
-          value={budgetLevel}
-          onChange={(event) => setBudgetLevel(event.target.value)}
-        >
-          <option value="free">Free</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-        </select>
-      </div>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <label>
-          <strong>Transport Mode</strong>
+        <label className="field">
+          <span>Transport</span>
+          <select
+            value={transportMode}
+            onChange={(event) =>
+              setTransportMode(event.target.value as TransportMode)
+            }
+          >
+            <option value="walking">Walking</option>
+            <option value="driving">Driving</option>
+          </select>
         </label>
-        <br />
-        <select
-          value={transportMode}
-          onChange={(event) => setTransportMode(event.target.value)}
-        >
-          <option value="walking">Walking</option>
-          <option value="driving">Driving</option>
-        </select>
-      </div>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <label>
-          <strong>Preferred Pace</strong>
+        <label className="field">
+          <span>Travel pace</span>
+          <select
+            value={preferredPace}
+            onChange={(event) =>
+              setPreferredPace(event.target.value as PreferredPace)
+            }
+          >
+            <option value="relaxed">Relaxed</option>
+            <option value="moderate">Moderate</option>
+            <option value="fast">Fast</option>
+          </select>
         </label>
-        <br />
-        <select
-          value={preferredPace}
-          onChange={(event) => setPreferredPace(event.target.value)}
-        >
-          <option value="relaxed">Relaxed</option>
-          <option value="moderate">Moderate</option>
-          <option value="fast">Fast</option>
-        </select>
+
+        <label className="field">
+          <span>Max stops</span>
+          <input
+            type="number"
+            min="1"
+            max="12"
+            value={maxAttractions}
+            onChange={(event) => setMaxAttractions(Number(event.target.value))}
+          />
+        </label>
       </div>
 
-      <button type="submit">Generate Itinerary</button>
+      <div className="form-summary">
+        <span>Window</span>
+        <strong>
+          {startTime} - {endTime}
+        </strong>
+        <span>{interests.length || "No"} interests selected</span>
+      </div>
+
+      <div className="form-actions">
+        <button type="submit" className="button button-primary">
+          Generate itinerary
+        </button>
+        <button type="button" className="button button-secondary" onClick={handleReset}>
+          Reset
+        </button>
+      </div>
     </form>
   );
 }
