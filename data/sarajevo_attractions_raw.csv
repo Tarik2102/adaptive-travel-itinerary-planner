@@ -1,0 +1,11 @@
+name,description,category,latitude,longitude,estimated_visit_duration,rating,price_level,indoor_outdoor,opening_time,closing_time
+Baščaršija,Historic old bazaar and cultural center,history,43.859,18.4317,90,4.8,free,outdoor,8:00,22:00
+Sebilj Fountain,Historic Ottoman-style wooden fountain,history,43.8593,18.4315,20,4.7,free,outdoor,0:00,23:59
+Gazi Husrev-beg Mosque,Important Ottoman-era mosque,culture,43.8592,18.4297,45,4.8,free,indoor,9:00,18:00
+Latin Bridge,Historic bridge connected with World War I history,history,43.8576,18.4288,30,4.6,free,outdoor,0:00,23:59
+Sarajevo City Hall,Historic Austro-Hungarian building,culture,43.858,18.4345,60,4.7,low,indoor,9:00,17:00
+Yellow Fortress,Panoramic viewpoint over Sarajevo,nature,43.8619,18.4386,45,4.7,free,outdoor,0:00,23:59
+Tunnel of Hope,War history museum,history,43.8193,18.3371,90,4.7,medium,indoor,9:00,17:00
+Vrelo Bosne,Natural park and spring,nature,43.8188,18.2706,120,4.8,low,outdoor,8:00,20:00
+Avaz Twist Tower,Modern viewpoint and landmark,architecture,43.8582,18.4051,60,4.6,medium,indoor,9:00,22:00
+National Museum of Bosnia and Herzegovina,Museum with historical and cultural exhibits,culture,43.8545,18.4028,90,4.6,medium,indoor,10:00,19:00
