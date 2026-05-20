@@ -1,45 +1,36 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import type { GeneratedItinerary, ItineraryApiResponse } from "@/types/itinerary";
+import {
+  travelInterestOptions,
+  type BudgetLevel,
+  type PlannerPreferences,
+  type PreferredPace,
+  type TransportMode,
+  type TravelInterest,
+} from "@/types/preference";
 
-const availableInterests = [
-  "history",
-  "culture",
-  "nature",
-  "architecture",
-  "religion",
-  "museum",
-] as const;
-
-type Interest = (typeof availableInterests)[number];
-type BudgetLevel = "free" | "low" | "medium" | "high";
-type TransportMode = "walking" | "driving";
-type PreferredPace = "relaxed" | "moderate" | "fast";
-
-type PlannerPreferences = {
-  interests: Interest[];
-  startTime: string;
-  endTime: string;
-  budgetLevel: BudgetLevel;
-  transportMode: TransportMode;
-  preferredPace: PreferredPace;
-  maxAttractions: number;
+type PreferenceFormProps = {
+  onItineraryGenerated: (itinerary: GeneratedItinerary | null) => void;
 };
 
 function formatOption(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function PreferenceForm() {
-  const [interests, setInterests] = useState<Interest[]>([]);
+export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
+  const [interests, setInterests] = useState<TravelInterest[]>([]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const [budgetLevel, setBudgetLevel] = useState<BudgetLevel>("medium");
   const [transportMode, setTransportMode] = useState<TransportMode>("walking");
   const [preferredPace, setPreferredPace] = useState<PreferredPace>("moderate");
   const [maxAttractions, setMaxAttractions] = useState(5);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function toggleInterest(interest: Interest) {
+  function toggleInterest(interest: TravelInterest) {
     setInterests((previousInterests) =>
       previousInterests.includes(interest)
         ? previousInterests.filter((item) => item !== interest)
@@ -47,7 +38,7 @@ export function PreferenceForm() {
     );
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const preferences: PlannerPreferences = {
@@ -60,9 +51,37 @@ export function PreferenceForm() {
       maxAttractions,
     };
 
-    console.log("Submitted preferences:", preferences);
+    setIsSubmitting(true);
+    setError(null);
+    onItineraryGenerated(null);
 
-    alert("Preferences captured. Recommendation logic will be connected next.");
+    try {
+      const response = await fetch("/api/itinerary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ preferences }),
+      });
+
+      const result = (await response.json()) as ItineraryApiResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.success ? "Failed to generate itinerary" : result.error
+        );
+      }
+
+      onItineraryGenerated(result.itinerary);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Failed to generate itinerary"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleReset() {
@@ -73,10 +92,12 @@ export function PreferenceForm() {
     setTransportMode("walking");
     setPreferredPace("moderate");
     setMaxAttractions(5);
+    setError(null);
+    onItineraryGenerated(null);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="preference-form">
+    <form onSubmit={handleSubmit} className="preference-form" aria-busy={isSubmitting}>
       <div className="form-header">
         <p className="eyebrow">Trip preferences</p>
         <h2>Plan your visit</h2>
@@ -90,7 +111,7 @@ export function PreferenceForm() {
         <legend>Interests</legend>
 
         <div className="interest-grid">
-          {availableInterests.map((interest) => (
+          {travelInterestOptions.map((interest) => (
             <label className="interest-option" key={interest}>
               <input
                 type="checkbox"
@@ -185,11 +206,23 @@ export function PreferenceForm() {
         <span>{interests.length || "No"} interests selected</span>
       </div>
 
+      {error ? (
+        <div className="form-error" role="alert">
+          <strong>Generation failed</strong>
+          <p>{error}</p>
+        </div>
+      ) : null}
+
       <div className="form-actions">
-        <button type="submit" className="button button-primary">
-          Generate itinerary
+        <button type="submit" className="button button-primary" disabled={isSubmitting}>
+          {isSubmitting ? "Generating..." : "Generate itinerary"}
         </button>
-        <button type="button" className="button button-secondary" onClick={handleReset}>
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={handleReset}
+          disabled={isSubmitting}
+        >
           Reset
         </button>
       </div>
