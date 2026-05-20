@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { AttractionList } from "@/components/AttractionList";
-import { PreferenceForm } from "@/components/PreferenceForm";
+import { PlannerWorkspace } from "@/components/PlannerWorkspace";
 
 export default function PlannerPage() {
   return (
@@ -39,15 +38,7 @@ export default function PlannerPage() {
         </div>
       </section>
 
-      <section className="page-container planner-layout">
-        <aside className="planner-form-column">
-          <PreferenceForm />
-        </aside>
-
-        <div className="planner-attractions-column">
-          <AttractionList />
-        </div>
-      </section>
+      <PlannerWorkspace />
     </main>
   );
 }
