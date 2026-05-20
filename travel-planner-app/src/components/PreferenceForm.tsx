@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
-import type { GeneratedItinerary, ItineraryApiResponse } from "@/types/itinerary";
+import type { ItineraryApiResponse, ItineraryPlan } from "@/types/itinerary";
 import {
   travelInterestOptions,
   type BudgetLevel,
@@ -12,8 +12,11 @@ import {
 } from "@/types/preference";
 
 type PreferenceFormProps = {
-  onItineraryGenerated: (itinerary: GeneratedItinerary | null) => void;
+  onItineraryGenerated: (itineraryPlan: ItineraryPlan | null) => void;
 };
+
+const interestValidationMessage =
+  "Please select at least one interest to generate your itinerary.";
 
 function formatOption(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -29,6 +32,12 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
   const [maxAttractions, setMaxAttractions] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showInterestValidation, setShowInterestValidation] = useState(false);
+  const allInterestsSelected = interests.length === travelInterestOptions.length;
+  const interestValidationError =
+    showInterestValidation && interests.length === 0
+      ? interestValidationMessage
+      : null;
 
   function toggleInterest(interest: TravelInterest) {
     setInterests((previousInterests) =>
@@ -38,8 +47,20 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
     );
   }
 
+  function handleInterestBulkToggle() {
+    setInterests(allInterestsSelected ? [] : [...travelInterestOptions]);
+    setShowInterestValidation(false);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (interests.length === 0) {
+      setShowInterestValidation(true);
+      setError(null);
+      onItineraryGenerated(null);
+      return;
+    }
 
     const preferences: PlannerPreferences = {
       interests,
@@ -53,6 +74,7 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
 
     setIsSubmitting(true);
     setError(null);
+    setShowInterestValidation(false);
     onItineraryGenerated(null);
 
     try {
@@ -72,7 +94,10 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
         );
       }
 
-      onItineraryGenerated(result.itinerary);
+      onItineraryGenerated({
+        itinerary: result.itinerary,
+        adaptation: result.adaptation,
+      });
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -93,6 +118,7 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
     setPreferredPace("moderate");
     setMaxAttractions(5);
     setError(null);
+    setShowInterestValidation(false);
     onItineraryGenerated(null);
   }
 
@@ -110,6 +136,17 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
       <fieldset className="form-fieldset">
         <legend>Interests</legend>
 
+        <div className="interest-toolbar">
+          <button
+            type="button"
+            className="button button-secondary interest-bulk-button"
+            onClick={handleInterestBulkToggle}
+            disabled={isSubmitting}
+          >
+            {allInterestsSelected ? "Clear all" : "Select all"}
+          </button>
+        </div>
+
         <div className="interest-grid">
           {travelInterestOptions.map((interest) => (
             <label className="interest-option" key={interest}>
@@ -123,6 +160,12 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
             </label>
           ))}
         </div>
+
+        {interestValidationError ? (
+          <p className="field-validation" role="alert">
+            {interestValidationError}
+          </p>
+        ) : null}
       </fieldset>
 
       <div className="form-grid">

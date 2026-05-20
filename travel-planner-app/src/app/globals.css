@@ -525,6 +525,18 @@ code {
   border: 0;
 }
 
+.interest-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+.interest-bulk-button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 0.85rem;
+}
+
 .form-fieldset legend,
 .field span {
   color: var(--foreground);
@@ -650,6 +662,14 @@ code {
   line-height: 1.5;
 }
 
+.field-validation {
+  margin-top: 10px;
+  color: var(--danger);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .form-actions {
   display: flex;
   flex-wrap: wrap;
@@ -694,6 +714,61 @@ code {
 .itinerary-summary-grid strong {
   color: var(--foreground);
   font-size: 1.05rem;
+}
+
+.adaptation-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 22px rgba(16, 33, 43, 0.06);
+}
+
+.adaptation-panel-active {
+  border-color: rgba(184, 117, 24, 0.36);
+  background: linear-gradient(180deg, var(--amber-soft), #ffffff 78%);
+}
+
+.adaptation-panel-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.adaptation-panel h3 {
+  margin-top: 6px;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.adaptation-weather,
+.adaptation-list,
+.adaptation-detail-group li {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.adaptation-list,
+.adaptation-detail-group ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+}
+
+.adaptation-detail-group {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.adaptation-detail-group strong {
+  font-size: 0.88rem;
 }
 
 .itinerary-list {
@@ -1046,6 +1121,7 @@ code {
   .feature-card,
   .api-link-card,
   .attraction-card,
+  .adaptation-panel,
   .itinerary-card,
   .state-panel {
     padding: 18px;
@@ -1075,6 +1151,10 @@ code {
   .attraction-meta,
   .itinerary-meta {
     grid-template-columns: 1fr;
+  }
+
+  .adaptation-panel-top {
+    flex-direction: column;
   }
 }
 

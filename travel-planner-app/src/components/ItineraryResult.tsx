@@ -1,8 +1,9 @@
 import { Badge } from "@/components/Badge";
 import { SectionHeader } from "@/components/SectionHeader";
-import type { GeneratedItinerary } from "@/types/itinerary";
+import type { GeneratedItinerary, ItineraryAdaptation } from "@/types/itinerary";
 
 type ItineraryResultProps = {
+  adaptation: ItineraryAdaptation | null;
   itinerary: GeneratedItinerary | null;
 };
 
@@ -42,7 +43,146 @@ function getStatusTone(status: GeneratedItinerary["feasibilityStatus"]) {
   return "slate";
 }
 
-export function ItineraryResult({ itinerary }: ItineraryResultProps) {
+function formatAdaptationStatus(
+  status: ItineraryAdaptation["feasibilityStatus"]
+) {
+  if (status === "adjusted") {
+    return "Adjusted";
+  }
+
+  if (status === "not_feasible") {
+    return "Not feasible";
+  }
+
+  return "Feasible";
+}
+
+function getAdaptationStatusTone(
+  status: ItineraryAdaptation["feasibilityStatus"]
+) {
+  if (status === "feasible") {
+    return "emerald";
+  }
+
+  if (status === "adjusted") {
+    return "amber";
+  }
+
+  return "slate";
+}
+
+function getAdaptationTitle(adaptation: ItineraryAdaptation) {
+  const hasWeatherAdjustment =
+    (adaptation.affectedAttractions?.length ?? 0) > 0 ||
+    (adaptation.replacedAttractions?.length ?? 0) > 0;
+  const hasScheduleAdjustment =
+    (adaptation.removedAttractions?.length ?? 0) > 0;
+
+  if (hasWeatherAdjustment && hasScheduleAdjustment) {
+    return "Real-time adjustment applied";
+  }
+
+  if (hasWeatherAdjustment) {
+    return "Weather-aware adjustment applied";
+  }
+
+  if (hasScheduleAdjustment) {
+    return "Schedule optimized to fit your available time";
+  }
+
+  return "No real-time adjustment needed";
+}
+
+function AdaptationCard({
+  adaptation,
+}: {
+  adaptation: ItineraryAdaptation;
+}) {
+  const removedAttractions = adaptation.removedAttractions ?? [];
+  const replacedAttractions = adaptation.replacedAttractions ?? [];
+  const affectedAttractions = adaptation.affectedAttractions ?? [];
+
+  return (
+    <aside
+      className={`adaptation-panel${
+        adaptation.applied ? " adaptation-panel-active" : ""
+      }`}
+      aria-label="Real-time adaptation summary"
+    >
+      <div className="adaptation-panel-top">
+        <div>
+          <p className="attraction-category">Real-time adaptation</p>
+          <h3>{getAdaptationTitle(adaptation)}</h3>
+        </div>
+
+        {adaptation.feasibilityStatus ? (
+          <Badge tone={getAdaptationStatusTone(adaptation.feasibilityStatus)}>
+            {formatAdaptationStatus(adaptation.feasibilityStatus)}
+          </Badge>
+        ) : null}
+      </div>
+
+      {adaptation.weatherCondition ? (
+        <p className="adaptation-weather">
+          {toTitleCase(adaptation.weatherCondition)} detected.
+        </p>
+      ) : null}
+
+      {adaptation.reasons.length > 0 ? (
+        <ul className="adaptation-list">
+          {adaptation.reasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      ) : null}
+
+      {removedAttractions.length > 0 ? (
+        <div className="adaptation-detail-group">
+          <strong>Removed attractions</strong>
+          <ul>
+            {removedAttractions.map((attraction) => (
+              <li key={attraction.id}>
+                Removed: {attraction.name} - {attraction.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {replacedAttractions.length > 0 ? (
+        <div className="adaptation-detail-group">
+          <strong>Replaced attractions</strong>
+          <ul>
+            {replacedAttractions.map((replacement) => (
+              <li key={`${replacement.removed.id}-${replacement.replacement.id}`}>
+                {replacement.removed.name} replaced with{" "}
+                {replacement.replacement.name} - {replacement.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {affectedAttractions.length > 0 ? (
+        <div className="adaptation-detail-group">
+          <strong>Affected attractions</strong>
+          <ul>
+            {affectedAttractions.map((attraction) => (
+              <li key={attraction.id}>
+                {attraction.name} - {attraction.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </aside>
+  );
+}
+
+export function ItineraryResult({
+  adaptation,
+  itinerary,
+}: ItineraryResultProps) {
   if (!itinerary) {
     return null;
   }
@@ -75,6 +215,8 @@ export function ItineraryResult({ itinerary }: ItineraryResultProps) {
           </Badge>
         </div>
       </div>
+
+      {adaptation ? <AdaptationCard adaptation={adaptation} /> : null}
 
       {itinerary.items.length === 0 ? (
         <div className="state-panel">
