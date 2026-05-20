@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import type { QueryResultRow } from "pg";
 import { z } from "zod";
 import {
-  calculateHaversineDistanceKm,
-  estimateWalkingTimeMinutes,
-  getOsrmRouteTime,
-  type Coordinates,
-} from "@/lib/routing";
+  createEmptyAdaptation,
+  mergeAdaptations,
+  SARAJEVO_COORDINATES,
+} from "@/lib/adaptation";
 import { query } from "@/lib/db";
+import {
+  adaptItineraryFeasibility,
+  type ItineraryCandidate,
+} from "@/lib/itinerary-feasibility";
+import { getCurrentWeather, type WeatherInfo } from "@/lib/weather";
+import { applyWeatherAdaptation } from "@/lib/weather-adaptation";
 import type { Attraction } from "@/types/attraction";
 import type { GeneratedItinerary, RankedAttraction } from "@/types/itinerary";
 import {
@@ -15,14 +20,18 @@ import {
   preferredPaceValues,
   transportModeValues,
   type PlannerPreferences,
-  type TransportMode,
 } from "@/types/preference";
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const preferenceSchema = z
   .object({
-    interests: z.array(z.string().trim().min(1)).default([]),
+    interests: z
+      .array(z.string().trim().min(1))
+      .min(
+        1,
+        "Please select at least one interest to generate your itinerary."
+      ),
     budgetLevel: z.enum(budgetLevelValues).default("medium"),
     startTime: z.string().regex(timePattern, "Start time must use HH:MM format"),
     endTime: z.string().regex(timePattern, "End time must use HH:MM format"),
@@ -72,11 +81,6 @@ type RecommendationAttractionPayload = {
   indoor_outdoor: string | null;
 };
 
-type RankedCandidate = {
-  attraction: Attraction;
-  rank: RankedAttraction;
-};
-
 class RecommendationServiceError extends Error {
   constructor(message: string) {
     super(message);
@@ -121,6 +125,9 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         itinerary: createEmptyItinerary(),
+        adaptation: createEmptyAdaptation({
+          feasibilityStatus: "not_feasible",
+        }),
       });
     }
 
@@ -128,15 +135,30 @@ export async function POST(request: Request) {
       preferences,
       attractions
     );
-    const itinerary = await buildItinerary(
-      preferences,
+    const weather = await fetchWeatherForAdaptation();
+    const weatherAdaptation = applyWeatherAdaptation(
+      rankedAttractions,
       attractions,
-      rankedAttractions
+      weather,
+      preferences.maxAttractions
+    );
+    const candidates = createItineraryCandidates(
+      attractions,
+      weatherAdaptation.rankedAttractions
+    );
+    const feasibilityAdaptation = await adaptItineraryFeasibility(
+      preferences,
+      candidates
+    );
+    const adaptation = mergeAdaptations(
+      weatherAdaptation.adaptation,
+      feasibilityAdaptation.adaptation
     );
 
     return NextResponse.json({
       success: true,
-      itinerary,
+      itinerary: feasibilityAdaptation.itinerary,
+      adaptation,
     });
   } catch (error) {
     if (error instanceof RecommendationServiceError) {
@@ -309,104 +331,38 @@ function parseRecommendationResponse(payload: unknown): RankedAttraction[] {
   });
 }
 
-async function buildItinerary(
-  preferences: PlannerPreferences,
+async function fetchWeatherForAdaptation(): Promise<WeatherInfo | null> {
+  const controller = new AbortController();
+  const timeoutId = windowlessSetTimeout(() => controller.abort(), 3500);
+
+  try {
+    return await getCurrentWeather(
+      SARAJEVO_COORDINATES.latitude,
+      SARAJEVO_COORDINATES.longitude,
+      controller.signal
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown weather service error";
+    console.warn("Weather adaptation skipped:", message);
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function createItineraryCandidates(
   attractions: Attraction[],
   rankedAttractions: RankedAttraction[]
-): Promise<GeneratedItinerary> {
-  const startMinutes = timeToMinutes(preferences.startTime);
-  const endMinutes = timeToMinutes(preferences.endTime);
+): ItineraryCandidate[] {
   const attractionsById = new Map(
     attractions.map((attraction) => [attraction.id, attraction])
   );
-  const candidates = rankedAttractions.flatMap((rank): RankedCandidate[] => {
+
+  return rankedAttractions.flatMap((rank): ItineraryCandidate[] => {
     const attraction = attractionsById.get(rank.id);
     return attraction ? [{ attraction, rank }] : [];
   });
-
-  const items: GeneratedItinerary["items"] = [];
-  let totalVisitTime = 0;
-  let totalTravelTime = 0;
-  let cursorMinutes = startMinutes;
-  let previousAttraction: Attraction | null = null;
-  let stoppedBecauseTime = false;
-
-  for (const candidate of candidates) {
-    if (items.length >= preferences.maxAttractions) {
-      break;
-    }
-
-    const travelTimeFromPrevious = previousAttraction
-      ? await calculateTravelTimeMinutes(
-          previousAttraction,
-          candidate.attraction,
-          preferences.transportMode
-        )
-      : 0;
-    const plannedStartMinutes = cursorMinutes + travelTimeFromPrevious;
-    const visitDuration = normalizeVisitDuration(
-      candidate.attraction.estimated_visit_duration
-    );
-    const plannedEndMinutes = plannedStartMinutes + visitDuration;
-
-    if (plannedEndMinutes > endMinutes) {
-      stoppedBecauseTime = true;
-      break;
-    }
-
-    items.push({
-      attraction: candidate.attraction,
-      score: candidate.rank.score,
-      reason: candidate.rank.reason,
-      plannedStartTime: minutesToTime(plannedStartMinutes),
-      plannedEndTime: minutesToTime(plannedEndMinutes),
-      travelTimeFromPrevious,
-    });
-
-    totalVisitTime += visitDuration;
-    totalTravelTime += travelTimeFromPrevious;
-    cursorMinutes = plannedEndMinutes;
-    previousAttraction = candidate.attraction;
-  }
-
-  return {
-    items,
-    totalVisitTime,
-    totalTravelTime,
-    totalDuration: totalVisitTime + totalTravelTime,
-    feasibilityStatus:
-      items.length === 0
-        ? "infeasible"
-        : stoppedBecauseTime
-          ? "partial"
-          : "feasible",
-  };
-}
-
-async function calculateTravelTimeMinutes(
-  from: Attraction,
-  to: Attraction,
-  transportMode: TransportMode
-): Promise<number> {
-  const fromCoordinates = getAttractionCoordinates(from);
-  const toCoordinates = getAttractionCoordinates(to);
-
-  if (transportMode === "walking") {
-    const distanceKm = calculateHaversineDistanceKm(
-      fromCoordinates,
-      toCoordinates
-    );
-    return estimateWalkingTimeMinutes(distanceKm);
-  }
-
-  return getOsrmRouteTime(fromCoordinates, toCoordinates);
-}
-
-function getAttractionCoordinates(attraction: Attraction): Coordinates {
-  return {
-    latitude: toFiniteNumber(attraction.latitude, 0),
-    longitude: toFiniteNumber(attraction.longitude, 0),
-  };
 }
 
 function createEmptyItinerary(): GeneratedItinerary {
@@ -419,22 +375,9 @@ function createEmptyItinerary(): GeneratedItinerary {
   };
 }
 
-function normalizeVisitDuration(duration: number): number {
-  return Math.max(15, Math.round(duration));
-}
-
 function timeToMinutes(value: string): number {
   const [hour, minute] = value.split(":").map(Number);
   return hour * 60 + minute;
-}
-
-function minutesToTime(value: number): string {
-  const minutesInDay = 24 * 60;
-  const normalized = ((value % minutesInDay) + minutesInDay) % minutesInDay;
-  const hour = Math.floor(normalized / 60);
-  const minute = normalized % 60;
-
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function toFiniteNumber(value: string | number, fallback: number): number {

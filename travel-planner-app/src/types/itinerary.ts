@@ -2,6 +2,10 @@ import type { Attraction } from "@/types/attraction";
 import type { PlannerPreferences } from "@/types/preference";
 
 export type FeasibilityStatus = "feasible" | "partial" | "infeasible";
+export type AdaptationFeasibilityStatus =
+  | "feasible"
+  | "adjusted"
+  | "not_feasible";
 
 export type RankedAttraction = {
   id: number;
@@ -26,9 +30,44 @@ export type GeneratedItinerary = {
   feasibilityStatus: FeasibilityStatus;
 };
 
+export type AdaptationAttraction = {
+  id: number;
+  name: string;
+};
+
+export type RemovedAttraction = AdaptationAttraction & {
+  reason: string;
+};
+
+export type ReplacedAttraction = {
+  removed: AdaptationAttraction;
+  replacement: AdaptationAttraction;
+  reason: string;
+};
+
+export type AffectedAttraction = AdaptationAttraction & {
+  reason: string;
+};
+
+export type ItineraryAdaptation = {
+  applied: boolean;
+  reasons: string[];
+  weatherCondition?: string;
+  removedAttractions?: RemovedAttraction[];
+  replacedAttractions?: ReplacedAttraction[];
+  affectedAttractions?: AffectedAttraction[];
+  feasibilityStatus?: AdaptationFeasibilityStatus;
+};
+
+export type ItineraryPlan = {
+  itinerary: GeneratedItinerary;
+  adaptation: ItineraryAdaptation;
+};
+
 export type ItinerarySuccessResponse = {
   success: true;
   itinerary: GeneratedItinerary;
+  adaptation: ItineraryAdaptation;
 };
 
 export type ItineraryErrorResponse = {
