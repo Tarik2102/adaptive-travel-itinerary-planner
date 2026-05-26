@@ -24,6 +24,11 @@ import {
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+const coordinateSchema = z.object({
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+});
+
 const preferenceSchema = z
   .object({
     interests: z
@@ -38,6 +43,7 @@ const preferenceSchema = z
     transportMode: z.enum(transportModeValues).default("walking"),
     preferredPace: z.enum(preferredPaceValues).default("moderate"),
     maxAttractions: z.coerce.number().int().min(1).max(12).default(5),
+    startLocation: coordinateSchema.optional(),
   })
   .refine(
     (preferences) =>
@@ -80,6 +86,11 @@ type RecommendationAttractionPayload = {
   price_level: string | null;
   indoor_outdoor: string | null;
 };
+
+type RecommendationPreferencesPayload = Omit<
+  PlannerPreferences,
+  "startLocation"
+>;
 
 class RecommendationServiceError extends Error {
   constructor(message: string) {
@@ -241,7 +252,7 @@ async function fetchRankedAttractions(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        preferences,
+        preferences: toRecommendationPreferences(preferences),
         attractions: attractions.map(toRecommendationPayload),
       }),
       signal: controller.signal,
@@ -269,6 +280,20 @@ async function fetchRankedAttractions(
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function toRecommendationPreferences(
+  preferences: PlannerPreferences
+): RecommendationPreferencesPayload {
+  return {
+    interests: preferences.interests,
+    startTime: preferences.startTime,
+    endTime: preferences.endTime,
+    budgetLevel: preferences.budgetLevel,
+    transportMode: preferences.transportMode,
+    preferredPace: preferences.preferredPace,
+    maxAttractions: preferences.maxAttractions,
+  };
 }
 
 function toRecommendationPayload(

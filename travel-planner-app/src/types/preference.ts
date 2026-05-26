@@ -1,3 +1,5 @@
+import type { Coordinates } from "@/lib/routing";
+
 export const travelInterestOptions = [
   "history",
   "culture",
@@ -24,4 +26,5 @@ export type PlannerPreferences = {
   transportMode: TransportMode;
   preferredPace: PreferredPace;
   maxAttractions: number;
+  startLocation?: Coordinates;
 };
