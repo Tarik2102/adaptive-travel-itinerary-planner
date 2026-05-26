@@ -19,6 +19,18 @@ export type ItineraryCandidate = {
   rank: RankedAttraction;
 };
 
+export type RouteOrderingOptions = {
+  transportMode: TransportMode;
+  startLocation?: Coordinates;
+};
+
+type OrderedCandidate = {
+  candidate: ItineraryCandidate;
+  originalIndex: number;
+};
+
+type TravelTimeCache = Map<string, number>;
+
 type FeasibilityAdaptationResult = {
   itinerary: GeneratedItinerary;
   adaptation: ItineraryAdaptation;
@@ -103,18 +115,31 @@ export async function buildScheduledItinerary(
 ): Promise<GeneratedItinerary> {
   const startMinutes = timeToMinutes(preferences.startTime);
   const availableDuration = getAvailableDurationMinutes(preferences);
+  const selectedCandidates = candidates.slice(0, preferences.maxAttractions);
+  const startLocation = getPreferenceStartLocation(preferences);
+  const travelTimeCache: TravelTimeCache = new Map();
+  const orderedCandidates = await orderStopsByNearestNeighborWithCache(
+    selectedCandidates,
+    {
+      transportMode: preferences.transportMode,
+      ...(startLocation ? { startLocation } : {}),
+    },
+    travelTimeCache
+  );
   const items: GeneratedItinerary["items"] = [];
   let totalVisitTime = 0;
   let totalTravelTime = 0;
   let cursorMinutes = startMinutes;
-  let previousAttraction: Attraction | null = null;
+  let previousLocation: Coordinates | null = startLocation ?? null;
 
-  for (const candidate of candidates.slice(0, preferences.maxAttractions)) {
-    const travelTimeFromPrevious = previousAttraction
+  for (const candidate of orderedCandidates) {
+    const currentLocation = getAttractionCoordinates(candidate.attraction);
+    const travelTimeFromPrevious = previousLocation
       ? await calculateTravelTimeMinutes(
-          previousAttraction,
-          candidate.attraction,
-          preferences.transportMode
+          previousLocation,
+          currentLocation,
+          preferences.transportMode,
+          travelTimeCache
         )
       : 0;
     const plannedStartMinutes = cursorMinutes + travelTimeFromPrevious;
@@ -135,10 +160,13 @@ export async function buildScheduledItinerary(
     totalVisitTime += visitDuration;
     totalTravelTime += travelTimeFromPrevious;
     cursorMinutes = plannedEndMinutes;
-    previousAttraction = candidate.attraction;
+    previousLocation = currentLocation;
   }
 
-  const totalDuration = totalVisitTime + totalTravelTime;
+  const totalDuration = calculateTotalItineraryDuration(
+    totalVisitTime,
+    totalTravelTime
+  );
 
   return {
     items,
@@ -152,6 +180,154 @@ export async function buildScheduledItinerary(
           ? "feasible"
           : "partial",
   };
+}
+
+export async function orderStopsByNearestNeighbor(
+  candidates: ItineraryCandidate[],
+  options: RouteOrderingOptions
+): Promise<ItineraryCandidate[]> {
+  return orderStopsByNearestNeighborWithCache(candidates, options, new Map());
+}
+
+export function calculateDistanceKm(
+  from: Coordinates,
+  to: Coordinates
+): number {
+  return calculateHaversineDistanceKm(from, to);
+}
+
+export function calculateTotalItineraryDuration(
+  totalVisitTime: number,
+  totalTravelTime: number
+): number {
+  return totalVisitTime + totalTravelTime;
+}
+
+async function orderStopsByNearestNeighborWithCache(
+  candidates: ItineraryCandidate[],
+  options: RouteOrderingOptions,
+  travelTimeCache: TravelTimeCache
+): Promise<ItineraryCandidate[]> {
+  const remainingCandidates: OrderedCandidate[] = candidates.map(
+    (candidate, originalIndex) => ({
+      candidate,
+      originalIndex,
+    })
+  );
+
+  if (remainingCandidates.length === 0) {
+    return [];
+  }
+
+  const orderedCandidates: ItineraryCandidate[] = [];
+  let currentLocation = getValidStartLocation(options.startLocation);
+
+  if (!currentLocation) {
+    const startIndex = findHighestScoreOrderedCandidateIndex(
+      remainingCandidates
+    );
+    const [startCandidate] = remainingCandidates.splice(startIndex, 1);
+    orderedCandidates.push(startCandidate.candidate);
+    currentLocation = getAttractionCoordinates(startCandidate.candidate.attraction);
+  }
+
+  while (remainingCandidates.length > 0) {
+    const nearestIndex = await findNearestOrderedCandidateIndex(
+      currentLocation,
+      remainingCandidates,
+      options.transportMode,
+      travelTimeCache
+    );
+    const [nextCandidate] = remainingCandidates.splice(nearestIndex, 1);
+    orderedCandidates.push(nextCandidate.candidate);
+    currentLocation = getAttractionCoordinates(nextCandidate.candidate.attraction);
+  }
+
+  return orderedCandidates;
+}
+
+function findHighestScoreOrderedCandidateIndex(
+  candidates: OrderedCandidate[]
+): number {
+  return candidates.reduce((highestIndex, candidate, index) => {
+    const highestCandidate = candidates[highestIndex];
+
+    if (candidate.candidate.rank.score > highestCandidate.candidate.rank.score) {
+      return index;
+    }
+
+    if (
+      candidate.candidate.rank.score ===
+        highestCandidate.candidate.rank.score &&
+      candidate.originalIndex < highestCandidate.originalIndex
+    ) {
+      return index;
+    }
+
+    return highestIndex;
+  }, 0);
+}
+
+async function findNearestOrderedCandidateIndex(
+  currentLocation: Coordinates,
+  candidates: OrderedCandidate[],
+  transportMode: TransportMode,
+  travelTimeCache: TravelTimeCache
+): Promise<number> {
+  const candidateTravelTimes = await Promise.all(
+    candidates.map(async (candidate, index) => ({
+      index,
+      travelTime: await calculateTravelTimeMinutes(
+        currentLocation,
+        getAttractionCoordinates(candidate.candidate.attraction),
+        transportMode,
+        travelTimeCache
+      ),
+    }))
+  );
+
+  return candidateTravelTimes.reduce((nearestIndex, candidateTravelTime) => {
+    const nearestTravelTime = candidateTravelTimes[nearestIndex];
+
+    if (
+      isCloserOrderedCandidate(
+        candidateTravelTime,
+        nearestTravelTime,
+        candidates
+      )
+    ) {
+      return candidateTravelTime.index;
+    }
+
+    return nearestIndex;
+  }, 0);
+}
+
+function isCloserOrderedCandidate(
+  candidateTravelTime: { index: number; travelTime: number },
+  nearestTravelTime: { index: number; travelTime: number },
+  candidates: OrderedCandidate[]
+): boolean {
+  if (candidateTravelTime.travelTime < nearestTravelTime.travelTime) {
+    return true;
+  }
+
+  if (candidateTravelTime.travelTime > nearestTravelTime.travelTime) {
+    return false;
+  }
+
+  const candidate = candidates[candidateTravelTime.index];
+  const nearest = candidates[nearestTravelTime.index];
+
+  if (candidate.candidate.rank.score > nearest.candidate.rank.score) {
+    return true;
+  }
+
+  if (candidate.candidate.rank.score < nearest.candidate.rank.score) {
+    return false;
+  }
+
+  return candidate.originalIndex < nearest.originalIndex;
 }
 
 function findLowestScoreCandidateIndex(candidates: ItineraryCandidate[]): number {
@@ -174,22 +350,59 @@ function findLowestScoreCandidateIndex(candidates: ItineraryCandidate[]): number
 }
 
 async function calculateTravelTimeMinutes(
-  from: Attraction,
-  to: Attraction,
-  transportMode: TransportMode
+  from: Coordinates,
+  to: Coordinates,
+  transportMode: TransportMode,
+  travelTimeCache: TravelTimeCache
 ): Promise<number> {
-  const fromCoordinates = getAttractionCoordinates(from);
-  const toCoordinates = getAttractionCoordinates(to);
+  const cacheKey = getTravelTimeCacheKey(from, to, transportMode);
+  const cachedTravelTime = travelTimeCache.get(cacheKey);
 
-  if (transportMode === "walking") {
-    const distanceKm = calculateHaversineDistanceKm(
-      fromCoordinates,
-      toCoordinates
-    );
-    return estimateWalkingTimeMinutes(distanceKm);
+  if (cachedTravelTime !== undefined) {
+    return cachedTravelTime;
   }
 
-  return getOsrmRouteTime(fromCoordinates, toCoordinates);
+  const travelTime =
+    transportMode === "walking"
+      ? estimateWalkingTimeMinutes(calculateDistanceKm(from, to))
+      : await getOsrmRouteTime(from, to);
+
+  travelTimeCache.set(cacheKey, travelTime);
+  return travelTime;
+}
+
+function getTravelTimeCacheKey(
+  from: Coordinates,
+  to: Coordinates,
+  transportMode: TransportMode
+): string {
+  return [
+    transportMode,
+    from.latitude.toFixed(6),
+    from.longitude.toFixed(6),
+    to.latitude.toFixed(6),
+    to.longitude.toFixed(6),
+  ].join(":");
+}
+
+function getPreferenceStartLocation(
+  preferences: PlannerPreferences
+): Coordinates | undefined {
+  return getValidStartLocation(preferences.startLocation);
+}
+
+function getValidStartLocation(
+  startLocation: Coordinates | undefined
+): Coordinates | undefined {
+  if (!startLocation) {
+    return undefined;
+  }
+
+  if (!isValidCoordinates(startLocation)) {
+    return undefined;
+  }
+
+  return startLocation;
 }
 
 function getAttractionCoordinates(attraction: Attraction): Coordinates {
@@ -197,6 +410,17 @@ function getAttractionCoordinates(attraction: Attraction): Coordinates {
     latitude: toFiniteNumber(attraction.latitude, 0),
     longitude: toFiniteNumber(attraction.longitude, 0),
   };
+}
+
+function isValidCoordinates(coordinates: Coordinates): boolean {
+  return (
+    Number.isFinite(coordinates.latitude) &&
+    Number.isFinite(coordinates.longitude) &&
+    coordinates.latitude >= -90 &&
+    coordinates.latitude <= 90 &&
+    coordinates.longitude >= -180 &&
+    coordinates.longitude <= 180
+  );
 }
 
 function getAvailableDurationMinutes(preferences: PlannerPreferences): number {
