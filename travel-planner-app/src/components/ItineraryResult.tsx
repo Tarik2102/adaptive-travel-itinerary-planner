@@ -1,4 +1,5 @@
 import { Badge } from "@/components/Badge";
+import { ItineraryMap } from "@/components/ItineraryMap";
 import { SectionHeader } from "@/components/SectionHeader";
 import type { GeneratedItinerary, ItineraryAdaptation } from "@/types/itinerary";
 
@@ -226,46 +227,50 @@ export function ItineraryResult({
           </p>
         </div>
       ) : (
-        <div className="itinerary-list">
-          {itinerary.items.map((item, index) => (
-            <article className="itinerary-card" key={item.attraction.id}>
-              <div className="itinerary-card-top">
-                <div>
-                  <p className="attraction-category">
-                    Stop {index + 1} - {toTitleCase(item.attraction.category)}
-                  </p>
-                  <h3>{item.attraction.name}</h3>
+        <>
+          <ItineraryMap items={itinerary.items} />
+
+          <div className="itinerary-list">
+            {itinerary.items.map((item, index) => (
+              <article className="itinerary-card" key={item.attraction.id}>
+                <div className="itinerary-card-top">
+                  <div>
+                    <p className="attraction-category">
+                      Stop {index + 1} - {toTitleCase(item.attraction.category)}
+                    </p>
+                    <h3>{item.attraction.name}</h3>
+                  </div>
+                  <span className="rating-pill">{formatScore(item.score)}</span>
                 </div>
-                <span className="rating-pill">{formatScore(item.score)}</span>
-              </div>
 
-              <p className="itinerary-reason">{item.reason}</p>
+                <p className="itinerary-reason">{item.reason}</p>
 
-              <div className="badge-row">
-                <Badge tone="blue">{toTitleCase(item.attraction.category)}</Badge>
-                <Badge tone="emerald">
-                  {item.plannedStartTime} - {item.plannedEndTime}
-                </Badge>
-                <Badge tone="slate">
-                  Visit {item.attraction.estimated_visit_duration} min
-                </Badge>
-              </div>
-
-              <dl className="itinerary-meta">
-                <div>
-                  <dt>Travel from previous</dt>
-                  <dd>{item.travelTimeFromPrevious} min</dd>
-                </div>
-                <div>
-                  <dt>Planned time</dt>
-                  <dd>
+                <div className="badge-row">
+                  <Badge tone="blue">{toTitleCase(item.attraction.category)}</Badge>
+                  <Badge tone="emerald">
                     {item.plannedStartTime} - {item.plannedEndTime}
-                  </dd>
+                  </Badge>
+                  <Badge tone="slate">
+                    Visit {item.attraction.estimated_visit_duration} min
+                  </Badge>
                 </div>
-              </dl>
-            </article>
-          ))}
-        </div>
+
+                <dl className="itinerary-meta">
+                  <div>
+                    <dt>Travel from previous</dt>
+                    <dd>{item.travelTimeFromPrevious} min</dd>
+                  </div>
+                  <div>
+                    <dt>Planned time</dt>
+                    <dd>
+                      {item.plannedStartTime} - {item.plannedEndTime}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        </>
       )}
     </section>
   );
