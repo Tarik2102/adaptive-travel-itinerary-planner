@@ -1,88 +1,98 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AttractionCard } from "@/components/AttractionCard";
+import { AttractionSkeletonGrid } from "@/components/Loader";
+import { SectionHeader } from "@/components/SectionHeader";
 import type { Attraction } from "@/types/attraction";
+
+type AttractionsResponse =
+  | {
+      success: true;
+      data: Attraction[];
+    }
+  | {
+      success: false;
+      error?: string;
+    };
 
 export function AttractionList() {
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchAttractions() {
-      try {
-        const response = await fetch("/api/attractions");
+  const fetchAttractions = useCallback(async () => {
+    await Promise.resolve();
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch attractions");
-        }
+    setLoading(true);
+    setError(null);
 
-        const result = await response.json();
+    try {
+      const response = await fetch("/api/attractions");
 
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch attractions");
-        }
-
-        setAttractions(result.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error("Failed to fetch attractions");
       }
-    }
 
-    fetchAttractions();
+      const result = (await response.json()) as AttractionsResponse;
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch attractions");
+      }
+
+      setAttractions(Array.isArray(result.data) ? result.data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (loading) {
-    return <p>Loading attractions...</p>;
-  }
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchAttractions();
+    }, 0);
 
-  if (error) {
-    return <p style={{ color: "red" }}>Error: {error}</p>;
-  }
-
-  if (attractions.length === 0) {
-    return <p>No attractions found in the database yet.</p>;
-  }
+    return () => window.clearTimeout(timeoutId);
+  }, [fetchAttractions]);
 
   return (
-    <section>
-      <h2>Available Attractions</h2>
+    <section className="attractions-section">
+      <SectionHeader
+        eyebrow="Live attraction data"
+        title="Available Sarajevo attractions"
+        description="Cards below are loaded from the existing attractions API without changing backend logic."
+      />
 
-      <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
-        {attractions.map((attraction) => (
-          <article
-            key={attraction.id}
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: "8px",
-              padding: "1rem",
-            }}
+      {loading ? (
+        <>
+          <p className="state-copy">Loading attractions from the database...</p>
+          <AttractionSkeletonGrid />
+        </>
+      ) : error ? (
+        <div className="state-panel state-panel-error">
+          <h3>Attractions could not be loaded</h3>
+          <p>{error}</p>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => void fetchAttractions()}
           >
-            <h3>{attraction.name}</h3>
-
-            <p>{attraction.description}</p>
-
-            <p>
-              <strong>Category:</strong> {attraction.category}
-            </p>
-
-            <p>
-              <strong>Duration:</strong>{" "}
-              {attraction.estimated_visit_duration} minutes
-            </p>
-
-            <p>
-              <strong>Price:</strong> {attraction.price_level || "N/A"}
-            </p>
-
-            <p>
-              <strong>Type:</strong> {attraction.indoor_outdoor || "N/A"}
-            </p>
-          </article>
-        ))}
-      </div>
+            Try again
+          </button>
+        </div>
+      ) : attractions.length === 0 ? (
+        <div className="state-panel">
+          <h3>No attractions found</h3>
+          <p>The database returned an empty attractions list.</p>
+        </div>
+      ) : (
+        <div className="attraction-grid">
+          {attractions.map((attraction) => (
+            <AttractionCard attraction={attraction} key={attraction.id} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

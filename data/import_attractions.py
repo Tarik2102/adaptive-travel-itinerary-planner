@@ -2,8 +2,11 @@ import os
 import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv("../backend/.env.local")
+ROOT_DIR = Path(__file__).resolve().parents[1]
+
+load_dotenv(ROOT_DIR / "travel-planner-app" / ".env.local")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 CSV_FILE = "sarajevo_attractions_clean.csv"
