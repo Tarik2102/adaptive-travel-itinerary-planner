@@ -76,17 +76,35 @@ code {
 }
 
 .site-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  left: 0;
   z-index: 20;
-  border-bottom: 1px solid rgba(217, 230, 236, 0.86);
-  background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(6, 28, 43, 0.62), rgba(6, 28, 43, 0.34)),
+    rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 34px rgba(6, 28, 43, 0.12);
+  backdrop-filter: blur(18px);
+  transform: translateY(0);
+  opacity: 1;
+  transition:
+    transform 240ms ease,
+    opacity 240ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.site-header-hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .nav-container {
   width: min(100% - 32px, 1180px);
-  min-height: 72px;
+  min-height: 82px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -97,36 +115,8 @@ code {
 .brand-link {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  flex: 0 1 248px;
   min-width: 0;
-}
-
-.brand-mark {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border-radius: var(--radius);
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--primary), var(--emerald));
-  font-weight: 800;
-  letter-spacing: 0;
-  box-shadow: 0 10px 24px rgba(15, 103, 177, 0.22);
-}
-
-.brand-copy {
-  display: grid;
-  gap: 2px;
-}
-
-.brand-title {
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-.brand-subtitle {
-  color: var(--muted);
-  font-size: 0.78rem;
 }
 
 .nav-links {
@@ -134,9 +124,17 @@ code {
   align-items: center;
   gap: 6px;
   padding: 4px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius);
-  background: rgba(246, 250, 252, 0.82);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.brand-logo {
+  width: clamp(164px, 21vw, 240px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(6, 28, 43, 0.24));
 }
 
 .nav-link,
@@ -158,21 +156,26 @@ code {
 
 .nav-link {
   padding: 0 16px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .nav-link:hover,
 .nav-link-active {
-  color: var(--primary-strong);
-  background: var(--surface);
-  box-shadow: 0 6px 16px rgba(16, 33, 43, 0.08);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 18px rgba(6, 28, 43, 0.14);
 }
 
 .nav-action {
   padding: 0 18px;
+  color: #063142;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(6, 28, 43, 0.18);
+}
+
+.nav-action:hover {
   color: #ffffff;
   background: var(--primary);
-  box-shadow: 0 10px 22px rgba(15, 103, 177, 0.2);
 }
 
 .nav-action:hover,
@@ -236,6 +239,7 @@ code {
   position: absolute;
   inset: 0;
   background:
+    linear-gradient(180deg, rgba(6, 28, 43, 0.5) 0%, rgba(6, 28, 43, 0) 26%),
     linear-gradient(
       90deg,
       rgba(6, 28, 43, 0.82) 0%,
@@ -252,7 +256,7 @@ code {
 .hero-content {
   position: relative;
   z-index: 1;
-  padding: 76px 0;
+  padding: 156px 0 88px;
 }
 
 .hero-content h1 {
@@ -413,6 +417,7 @@ code {
 
 .planner-page {
   padding-bottom: 80px;
+  padding-top: 82px;
 }
 
 .planner-hero {
@@ -1048,19 +1053,27 @@ code {
 @media (max-width: 760px) {
   .nav-container {
     min-height: auto;
-    padding: 12px 0;
+    padding: 10px 0 12px;
     flex-wrap: wrap;
     gap: 12px;
   }
 
-  .brand-subtitle,
   .nav-action {
     display: none;
+  }
+
+  .brand-link {
+    flex-basis: 196px;
+  }
+
+  .brand-logo {
+    width: clamp(152px, 54vw, 196px);
   }
 
   .nav-links {
     order: 3;
     width: 100%;
+    background: rgba(6, 28, 43, 0.36);
   }
 
   .nav-link {
@@ -1081,7 +1094,7 @@ code {
   }
 
   .hero-content {
-    padding: 54px 0;
+    padding: 156px 0 64px;
   }
 
   .hero-content h1 {
@@ -1136,6 +1149,14 @@ code {
 
   .hero-content h1 {
     font-size: 2.25rem;
+  }
+
+  .brand-link {
+    flex-basis: 176px;
+  }
+
+  .brand-logo {
+    width: clamp(142px, 62vw, 176px);
   }
 
   .hero-actions,

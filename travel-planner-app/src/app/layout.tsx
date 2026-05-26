@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: "Sarajevo Travel Planner",
   description:
     "Real-time adaptive AI-based travel itinerary planner for Sarajevo.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 }; 
 
 export default function RootLayout({
