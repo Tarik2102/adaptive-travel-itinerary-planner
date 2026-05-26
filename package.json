@@ -1,0 +1,12 @@
+{
+  "name": "adaptive-travel-itinerary-planner",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix travel-planner-app run dev",
+    "build": "npm --prefix travel-planner-app run build",
+    "start": "npm --prefix travel-planner-app run start",
+    "lint": "npm --prefix travel-planner-app run lint",
+    "ml": "ml-service\\venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 8000 --app-dir ml-service"
+  }
+}
