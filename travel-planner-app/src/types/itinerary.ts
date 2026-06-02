@@ -1,5 +1,15 @@
 import type { Attraction } from "@/types/attraction";
-import type { PlannerPreferences } from "@/types/preference";
+import type { PlannerPreferences, TransportMode } from "@/types/preference";
+import type { RouteGeometry, RoutingMetadata } from "@/lib/routing";
+
+export type {
+  Coordinate,
+  RouteGeometry,
+  RoutingFallbackReason,
+  RoutingMetadata,
+  RoutingProvider,
+  RoutingResponse,
+} from "@/lib/routing";
 
 export type FeasibilityStatus = "feasible" | "partial" | "infeasible";
 export type AdaptationFeasibilityStatus =
@@ -28,6 +38,9 @@ export type GeneratedItinerary = {
   totalTravelTime: number;
   totalDuration: number;
   feasibilityStatus: FeasibilityStatus;
+  transportMode?: TransportMode;
+  routeGeometry?: RouteGeometry;
+  routing?: RoutingMetadata;
 };
 
 export type AdaptationAttraction = {
@@ -79,6 +92,8 @@ export type ItineraryErrorResponse = {
 export type ItineraryApiResponse =
   | ItinerarySuccessResponse
   | ItineraryErrorResponse;
+
+export type ItineraryResponse = ItineraryApiResponse;
 
 export type ItineraryRequest = {
   preferences: PlannerPreferences;

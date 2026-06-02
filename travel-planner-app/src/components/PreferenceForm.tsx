@@ -1,6 +1,13 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ItineraryApiResponse, ItineraryPlan } from "@/types/itinerary";
 import {
   travelInterestOptions,
@@ -17,9 +24,32 @@ type PreferenceFormProps = {
 
 const interestValidationMessage =
   "Please select at least one interest to generate your itinerary.";
+const autoRegenerationDelayMs = 1000;
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+type SubmissionMode = "manual" | "auto";
 
 function formatOption(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function isValidPreferenceInput(preferences: PlannerPreferences) {
+  if (
+    !timePattern.test(preferences.startTime) ||
+    !timePattern.test(preferences.endTime)
+  ) {
+    return false;
+  }
+
+  return (
+    timeToMinutes(preferences.endTime) >
+    timeToMinutes(preferences.startTime)
+  );
+}
+
+function timeToMinutes(value: string): number {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
 }
 
 export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
@@ -31,38 +61,22 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
   const [preferredPace, setPreferredPace] = useState<PreferredPace>("moderate");
   const [maxAttractions, setMaxAttractions] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionMode, setSubmissionMode] =
+    useState<SubmissionMode>("manual");
   const [error, setError] = useState<string | null>(null);
   const [showInterestValidation, setShowInterestValidation] = useState(false);
+  const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastRequestKeyRef = useRef<string | null>(null);
+  const activeRequestIdRef = useRef(0);
+  const requestSequenceRef = useRef(0);
   const allInterestsSelected = interests.length === travelInterestOptions.length;
   const interestValidationError =
     showInterestValidation && interests.length === 0
       ? interestValidationMessage
       : null;
-
-  function toggleInterest(interest: TravelInterest) {
-    setInterests((previousInterests) =>
-      previousInterests.includes(interest)
-        ? previousInterests.filter((item) => item !== interest)
-        : [...previousInterests, interest]
-    );
-  }
-
-  function handleInterestBulkToggle() {
-    setInterests(allInterestsSelected ? [] : [...travelInterestOptions]);
-    setShowInterestValidation(false);
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (interests.length === 0) {
-      setShowInterestValidation(true);
-      setError(null);
-      onItineraryGenerated(null);
-      return;
-    }
-
-    const preferences: PlannerPreferences = {
+  const preferences = useMemo<PlannerPreferences>(
+    () => ({
       interests,
       startTime,
       endTime,
@@ -70,43 +84,189 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
       transportMode,
       preferredPace,
       maxAttractions,
-    };
+    }),
+    [
+      budgetLevel,
+      endTime,
+      interests,
+      maxAttractions,
+      preferredPace,
+      startTime,
+      transportMode,
+    ]
+  );
+  const preferenceKey = useMemo(
+    () => JSON.stringify(preferences),
+    [preferences]
+  );
 
-    setIsSubmitting(true);
-    setError(null);
+  function toggleInterest(interest: TravelInterest) {
+    const nextInterests = interests.includes(interest)
+      ? interests.filter((item) => item !== interest)
+      : [...interests, interest];
+
+    setInterests(nextInterests);
+    handlePreferencesChanged();
+  }
+
+  function handleInterestBulkToggle() {
+    const nextInterests = allInterestsSelected ? [] : [...travelInterestOptions];
+
+    setInterests(nextInterests);
+    handlePreferencesChanged();
     setShowInterestValidation(false);
+  }
+
+  function handlePreferencesChanged() {
+    if (!hasGeneratedItinerary) {
+      return;
+    }
+
+    abortControllerRef.current?.abort();
+    requestSequenceRef.current += 1;
+    activeRequestIdRef.current = requestSequenceRef.current;
+    lastRequestKeyRef.current = null;
+    setError(null);
+    setIsSubmitting(false);
     onItineraryGenerated(null);
+  }
 
-    try {
-      const response = await fetch("/api/itinerary", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ preferences }),
-      });
+  const requestItinerary = useCallback(
+    async (nextPreferences: PlannerPreferences, mode: SubmissionMode) => {
+      if (nextPreferences.interests.length === 0) {
+        if (mode === "manual") {
+          setShowInterestValidation(true);
+          setError(null);
+          onItineraryGenerated(null);
+          setHasGeneratedItinerary(false);
+        }
 
-      const result = (await response.json()) as ItineraryApiResponse;
-
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.success ? "Failed to generate itinerary" : result.error
-        );
+        return;
       }
 
-      onItineraryGenerated({
-        itinerary: result.itinerary,
-        adaptation: result.adaptation,
-      });
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Failed to generate itinerary"
-      );
-    } finally {
-      setIsSubmitting(false);
+      if (!isValidPreferenceInput(nextPreferences)) {
+        if (mode === "manual") {
+          setError("Please enter a valid time window before generating.");
+        }
+
+        return;
+      }
+
+      const requestKey = JSON.stringify(nextPreferences);
+
+      if (mode === "auto" && lastRequestKeyRef.current === requestKey) {
+        return;
+      }
+
+      abortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      const requestId = requestSequenceRef.current + 1;
+
+      requestSequenceRef.current = requestId;
+      activeRequestIdRef.current = requestId;
+      abortControllerRef.current = abortController;
+      lastRequestKeyRef.current = requestKey;
+
+      setIsSubmitting(true);
+      setSubmissionMode(mode);
+      setError(null);
+      setShowInterestValidation(false);
+
+      onItineraryGenerated(null);
+
+      try {
+        const response = await fetch("/api/itinerary", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ preferences: nextPreferences }),
+          signal: abortController.signal,
+        });
+
+        const result = (await response.json()) as ItineraryApiResponse;
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.success ? "Failed to generate itinerary" : result.error
+          );
+        }
+
+        if (
+          abortController.signal.aborted ||
+          activeRequestIdRef.current !== requestId
+        ) {
+          return;
+        }
+
+        setHasGeneratedItinerary(true);
+        onItineraryGenerated({
+          itinerary: result.itinerary,
+          adaptation: result.adaptation,
+        });
+      } catch (requestError) {
+        if (
+          abortController.signal.aborted ||
+          activeRequestIdRef.current !== requestId
+        ) {
+          return;
+        }
+
+        lastRequestKeyRef.current = null;
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Failed to generate itinerary"
+        );
+      } finally {
+        if (
+          abortControllerRef.current === abortController &&
+          activeRequestIdRef.current === requestId
+        ) {
+          abortControllerRef.current = null;
+          setIsSubmitting(false);
+        }
+      }
+    },
+    [onItineraryGenerated]
+  );
+
+  useEffect(() => {
+    if (!hasGeneratedItinerary || interests.length === 0) {
+      return;
     }
+
+    const timeoutId = window.setTimeout(() => {
+      void requestItinerary(preferences, "auto");
+    }, autoRegenerationDelayMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    hasGeneratedItinerary,
+    interests.length,
+    preferenceKey,
+    preferences,
+    requestItinerary,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (preferences.interests.length === 0) {
+      setShowInterestValidation(true);
+      setError(null);
+      onItineraryGenerated(null);
+      setHasGeneratedItinerary(false);
+      return;
+    }
+
+    await requestItinerary(preferences, "manual");
   }
 
   function handleReset() {
@@ -119,6 +279,11 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
     setMaxAttractions(5);
     setError(null);
     setShowInterestValidation(false);
+    setHasGeneratedItinerary(false);
+    lastRequestKeyRef.current = null;
+    requestSequenceRef.current += 1;
+    activeRequestIdRef.current = requestSequenceRef.current;
+    abortControllerRef.current?.abort();
     onItineraryGenerated(null);
   }
 
@@ -174,7 +339,10 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
           <input
             type="time"
             value={startTime}
-            onChange={(event) => setStartTime(event.target.value)}
+            onChange={(event) => {
+              setStartTime(event.target.value);
+              handlePreferencesChanged();
+            }}
           />
         </label>
 
@@ -183,7 +351,10 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
           <input
             type="time"
             value={endTime}
-            onChange={(event) => setEndTime(event.target.value)}
+            onChange={(event) => {
+              setEndTime(event.target.value);
+              handlePreferencesChanged();
+            }}
           />
         </label>
 
@@ -191,9 +362,10 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
           <span>Budget level</span>
           <select
             value={budgetLevel}
-            onChange={(event) =>
-              setBudgetLevel(event.target.value as BudgetLevel)
-            }
+            onChange={(event) => {
+              setBudgetLevel(event.target.value as BudgetLevel);
+              handlePreferencesChanged();
+            }}
           >
             <option value="free">Free</option>
             <option value="low">Low</option>
@@ -206,9 +378,10 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
           <span>Transport</span>
           <select
             value={transportMode}
-            onChange={(event) =>
-              setTransportMode(event.target.value as TransportMode)
-            }
+            onChange={(event) => {
+              setTransportMode(event.target.value as TransportMode);
+              handlePreferencesChanged();
+            }}
           >
             <option value="walking">Walking</option>
             <option value="driving">Driving</option>
@@ -219,9 +392,10 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
           <span>Travel pace</span>
           <select
             value={preferredPace}
-            onChange={(event) =>
-              setPreferredPace(event.target.value as PreferredPace)
-            }
+            onChange={(event) => {
+              setPreferredPace(event.target.value as PreferredPace);
+              handlePreferencesChanged();
+            }}
           >
             <option value="relaxed">Relaxed</option>
             <option value="moderate">Moderate</option>
@@ -236,7 +410,10 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
             min="1"
             max="12"
             value={maxAttractions}
-            onChange={(event) => setMaxAttractions(Number(event.target.value))}
+            onChange={(event) => {
+              setMaxAttractions(Number(event.target.value));
+              handlePreferencesChanged();
+            }}
           />
         </label>
       </div>
@@ -258,7 +435,11 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
 
       <div className="form-actions">
         <button type="submit" className="button button-primary" disabled={isSubmitting}>
-          {isSubmitting ? "Generating..." : "Generate itinerary"}
+          {isSubmitting && submissionMode === "auto"
+            ? "Updating itinerary..."
+            : isSubmitting
+              ? "Generating..."
+              : "Generate itinerary"}
         </button>
         <button
           type="button"

@@ -1,10 +1,18 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ItineraryItem } from "@/types/itinerary";
+import type {
+  ItineraryItem,
+  RouteGeometry,
+  RoutingMetadata,
+} from "@/types/itinerary";
+import type { TransportMode } from "@/types/preference";
 
 export type ItineraryMapProps = {
   items: ItineraryItem[];
+  transportMode?: TransportMode;
+  routeGeometry?: RouteGeometry;
+  routing?: RoutingMetadata;
 };
 
 const ItineraryMapClient = dynamic<ItineraryMapProps>(
@@ -28,10 +36,22 @@ const ItineraryMapClient = dynamic<ItineraryMapProps>(
   }
 );
 
-export function ItineraryMap({ items }: ItineraryMapProps) {
+export function ItineraryMap({
+  items,
+  routing,
+  transportMode,
+  routeGeometry,
+}: ItineraryMapProps) {
   if (items.length === 0) {
     return null;
   }
 
-  return <ItineraryMapClient items={items} />;
+  return (
+    <ItineraryMapClient
+      items={items}
+      routing={routing}
+      routeGeometry={routeGeometry}
+      transportMode={transportMode}
+    />
+  );
 }
