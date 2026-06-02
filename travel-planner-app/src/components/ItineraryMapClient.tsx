@@ -11,7 +11,8 @@ import {
   useMap,
 } from "react-leaflet";
 import type { ItineraryMapProps } from "@/components/ItineraryMap";
-import type { ItineraryItem } from "@/types/itinerary";
+import type { ItineraryItem, RouteGeometry } from "@/types/itinerary";
+import type { TransportMode } from "@/types/preference";
 
 type ItineraryMapStop = {
   id: number;
@@ -83,6 +84,30 @@ function buildStops(items: ItineraryItem[]): ItineraryMapStop[] {
   });
 }
 
+function buildRouteGeometryPositions(
+  routeGeometry: RouteGeometry | undefined
+): [number, number][] {
+  if (!routeGeometry) {
+    return [];
+  }
+
+  return routeGeometry.coordinates.flatMap((coordinate): [number, number][] => {
+    const latitude = toFiniteCoordinate(coordinate.lat);
+    const longitude = toFiniteCoordinate(coordinate.lng);
+
+    if (
+      latitude === null ||
+      longitude === null ||
+      !isValidLatitude(latitude) ||
+      !isValidLongitude(longitude)
+    ) {
+      return [];
+    }
+
+    return [[latitude, longitude]];
+  });
+}
+
 function createNumberedIcon(order: number) {
   return L.divIcon({
     className: "itinerary-numbered-marker",
@@ -141,11 +166,58 @@ function NumberedMarker({ stop }: { stop: ItineraryMapStop }) {
   );
 }
 
-export function ItineraryMapClient({ items }: ItineraryMapProps) {
+function getRoutePathOptions(transportMode: TransportMode | undefined) {
+  return {
+    color: transportMode === "walking" ? "#0b7a75" : "#0f67b1",
+    dashArray: transportMode === "walking" ? "2 10" : undefined,
+    lineCap: "round" as const,
+    opacity: 0.78,
+    weight: 4,
+  };
+}
+
+export function ItineraryMapClient({
+  items,
+  routing,
+  routeGeometry,
+  transportMode,
+}: ItineraryMapProps) {
   const stops = useMemo(() => buildStops(items), [items]);
-  const routePositions = useMemo(
+  const stopPositions = useMemo(
     () => stops.map((stop) => stop.position),
     [stops]
+  );
+  const geometryPositions = useMemo(
+    () => buildRouteGeometryPositions(routeGeometry),
+    [routeGeometry]
+  );
+  const shouldUseRouteGeometry = routing
+    ? routing.provider !== "fallback"
+    : geometryPositions.length >= 2;
+  const routePositions = useMemo(
+    () =>
+      shouldUseRouteGeometry && geometryPositions.length >= 2
+        ? geometryPositions
+        : stopPositions,
+    [geometryPositions, shouldUseRouteGeometry, stopPositions]
+  );
+  const boundsPositions = useMemo(
+    () => [...routePositions, ...stopPositions],
+    [routePositions, stopPositions]
+  );
+  const routePathOptions = useMemo(
+    () => getRoutePathOptions(transportMode),
+    [transportMode]
+  );
+  const routeKey = useMemo(
+    () =>
+      [
+        routing?.provider ?? "unknown",
+        routing?.geometryPointCount ?? routePositions.length,
+        transportMode ?? "unknown",
+        JSON.stringify(routePositions),
+      ].join(":"),
+    [routePositions, routing, transportMode]
   );
 
   if (stops.length === 0) {
@@ -172,14 +244,11 @@ export function ItineraryMapClient({ items }: ItineraryMapProps) {
           attribution={TILE_LAYER_ATTRIBUTION}
           url={TILE_LAYER_URL}
         />
-        <FitMapBounds positions={routePositions} />
+        <FitMapBounds positions={boundsPositions} />
         {routePositions.length > 1 ? (
           <Polyline
-            pathOptions={{
-              color: "#0f67b1",
-              opacity: 0.78,
-              weight: 4,
-            }}
+            key={routeKey}
+            pathOptions={routePathOptions}
             positions={routePositions}
           />
         ) : null}

@@ -11,6 +11,13 @@ import {
   adaptItineraryFeasibility,
   type ItineraryCandidate,
 } from "@/lib/itinerary-feasibility";
+import {
+  buildRoutingMetadata,
+  getRoute,
+  type Coordinates,
+  type RoutingMetadata,
+  type RoutingResponse,
+} from "@/lib/routing";
 import { getCurrentWeather, type WeatherInfo } from "@/lib/weather";
 import { applyWeatherAdaptation } from "@/lib/weather-adaptation";
 import type { Attraction } from "@/types/attraction";
@@ -20,6 +27,7 @@ import {
   preferredPaceValues,
   transportModeValues,
   type PlannerPreferences,
+  type TransportMode,
 } from "@/types/preference";
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -135,7 +143,13 @@ export async function POST(request: Request) {
     if (attractions.length === 0) {
       return NextResponse.json({
         success: true,
-        itinerary: createEmptyItinerary(),
+        itinerary: {
+          ...createEmptyItinerary(),
+          routing: createInsufficientRoutingMetadata(
+            preferences.transportMode
+          ),
+          transportMode: preferences.transportMode,
+        },
         adaptation: createEmptyAdaptation({
           feasibilityStatus: "not_feasible",
         }),
@@ -165,10 +179,20 @@ export async function POST(request: Request) {
       weatherAdaptation.adaptation,
       feasibilityAdaptation.adaptation
     );
+    const route = await fetchItineraryRoute(
+      feasibilityAdaptation.itinerary,
+      preferences.transportMode
+    );
+    const routing = toItineraryRoutingMetadata(route);
 
     return NextResponse.json({
       success: true,
-      itinerary: feasibilityAdaptation.itinerary,
+      itinerary: {
+        ...feasibilityAdaptation.itinerary,
+        routeGeometry: route.routeGeometry,
+        routing,
+        transportMode: preferences.transportMode,
+      },
       adaptation,
     });
   } catch (error) {
@@ -398,6 +422,62 @@ function createEmptyItinerary(): GeneratedItinerary {
     totalDuration: 0,
     feasibilityStatus: "infeasible",
   };
+}
+
+async function fetchItineraryRoute(
+  itinerary: GeneratedItinerary,
+  transportMode: TransportMode
+): Promise<RoutingResponse> {
+  const coordinates = itinerary.items
+    .map((item): Coordinates => ({
+      latitude: toFiniteNumber(item.attraction.latitude, 0),
+      longitude: toFiniteNumber(item.attraction.longitude, 0),
+    }))
+    .filter(isValidCoordinates);
+
+  return getRoute(coordinates, {
+    includeGeometry: true,
+    transport: transportMode,
+  });
+}
+
+function toItineraryRoutingMetadata(route: RoutingResponse): RoutingMetadata {
+  const routing = buildRoutingMetadata(route);
+
+  if (process.env.NODE_ENV === "development") {
+    return routing;
+  }
+
+  return {
+    geometryPointCount: routing.geometryPointCount,
+    provider: routing.provider,
+    transport: routing.transport,
+  };
+}
+
+function createInsufficientRoutingMetadata(
+  transport: TransportMode
+): RoutingMetadata {
+  return {
+    ...(process.env.NODE_ENV === "development"
+      ? { fallbackReason: "insufficient_coordinates" as const }
+      : {}),
+    geometryPointCount: 0,
+    provider: "fallback",
+    transport,
+  };
+}
+
+function isValidCoordinates(coordinates: Coordinates): boolean {
+  return (
+    Number.isFinite(coordinates.latitude) &&
+    Number.isFinite(coordinates.longitude) &&
+    coordinates.latitude >= -90 &&
+    coordinates.latitude <= 90 &&
+    coordinates.longitude >= -180 &&
+    coordinates.longitude <= 180 &&
+    !(coordinates.latitude === 0 && coordinates.longitude === 0)
+  );
 }
 
 function timeToMinutes(value: string): number {

@@ -228,7 +228,12 @@ export function ItineraryResult({
         </div>
       ) : (
         <>
-          <ItineraryMap items={itinerary.items} />
+          <ItineraryMap
+            items={itinerary.items}
+            routeGeometry={itinerary.routeGeometry}
+            routing={itinerary.routing}
+            transportMode={itinerary.transportMode}
+          />
 
           <div className="itinerary-list">
             {itinerary.items.map((item, index) => (

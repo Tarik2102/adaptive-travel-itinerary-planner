@@ -1,8 +1,7 @@
 import { createEmptyAdaptation } from "@/lib/adaptation";
 import {
   calculateHaversineDistanceKm,
-  estimateWalkingTimeMinutes,
-  getOsrmRouteTime,
+  getRoute,
   type Coordinates,
 } from "@/lib/routing";
 import type { Attraction } from "@/types/attraction";
@@ -131,16 +130,16 @@ export async function buildScheduledItinerary(
   let totalTravelTime = 0;
   let cursorMinutes = startMinutes;
   let previousLocation: Coordinates | null = startLocation ?? null;
+  const routeLegTravelTimes = await getRouteLegTravelTimesMinutes(
+    orderedCandidates,
+    startLocation ?? null,
+    preferences.transportMode
+  );
 
-  for (const candidate of orderedCandidates) {
+  for (const [index, candidate] of orderedCandidates.entries()) {
     const currentLocation = getAttractionCoordinates(candidate.attraction);
     const travelTimeFromPrevious = previousLocation
-      ? await calculateTravelTimeMinutes(
-          previousLocation,
-          currentLocation,
-          preferences.transportMode,
-          travelTimeCache
-        )
+      ? getTravelTimeFromRouteLegs(routeLegTravelTimes, index, !!startLocation)
       : 0;
     const plannedStartMinutes = cursorMinutes + travelTimeFromPrevious;
     const visitDuration = normalizeVisitDuration(
@@ -362,13 +361,89 @@ async function calculateTravelTimeMinutes(
     return cachedTravelTime;
   }
 
-  const travelTime =
-    transportMode === "walking"
-      ? estimateWalkingTimeMinutes(calculateDistanceKm(from, to))
-      : await getOsrmRouteTime(from, to);
+  const travelTime = estimateLocalTravelTimeMinutes(
+    calculateDistanceKm(from, to),
+    transportMode
+  );
 
   travelTimeCache.set(cacheKey, travelTime);
   return travelTime;
+}
+
+async function getRouteLegTravelTimesMinutes(
+  orderedCandidates: ItineraryCandidate[],
+  startLocation: Coordinates | null,
+  transportMode: TransportMode
+): Promise<number[]> {
+  const attractionCoordinates = orderedCandidates.map((candidate) =>
+    getAttractionCoordinates(candidate.attraction)
+  );
+  const routeCoordinates = startLocation
+    ? [startLocation, ...attractionCoordinates]
+    : attractionCoordinates;
+
+  if (routeCoordinates.length < 2) {
+    return [];
+  }
+
+  const fallbackLegTravelTimes = getFallbackLegTravelTimesMinutes(
+    routeCoordinates,
+    transportMode
+  );
+  const route = await getRoute(routeCoordinates, {
+    includeGeometry: false,
+    transport: transportMode,
+  });
+  const expectedLegCount = routeCoordinates.length - 1;
+
+  const legDurationsSeconds = route.legDurationsSeconds ?? [];
+
+  if (legDurationsSeconds.length >= expectedLegCount) {
+    return legDurationsSeconds
+      .slice(0, expectedLegCount)
+      .map((durationSeconds) => Math.max(0, Math.round(durationSeconds / 60)));
+  }
+
+  return fallbackLegTravelTimes;
+}
+
+function getFallbackLegTravelTimesMinutes(
+  coordinates: Coordinates[],
+  transportMode: TransportMode
+): number[] {
+  return coordinates.slice(1).map((coordinate, index) =>
+    estimateLocalTravelTimeMinutes(
+      calculateDistanceKm(coordinates[index], coordinate),
+      transportMode
+    )
+  );
+}
+
+function getTravelTimeFromRouteLegs(
+  routeLegTravelTimes: number[],
+  itemIndex: number,
+  hasStartLocation: boolean
+): number {
+  const legIndex = hasStartLocation ? itemIndex : itemIndex - 1;
+
+  if (legIndex < 0) {
+    return 0;
+  }
+
+  return routeLegTravelTimes[legIndex] ?? 0;
+}
+
+function estimateLocalTravelTimeMinutes(
+  distanceKm: number,
+  transportMode: TransportMode
+): number {
+  if (transportMode === "walking") {
+    const averageWalkingSpeedKmH = 4.5;
+    return Math.round((distanceKm / averageWalkingSpeedKmH) * 60);
+  }
+
+  const urbanDrivingSpeedKmH = 25;
+  return Math.max(1, Math.round((distanceKm / urbanDrivingSpeedKmH) * 60));
 }
 
 function getTravelTimeCacheKey(
