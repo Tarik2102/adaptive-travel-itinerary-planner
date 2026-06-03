@@ -12,4 +12,9 @@ export type Attraction = {
   opening_time: string | null;
   closing_time: string | null;
   created_at?: string;
+  is_active?: boolean;
+  is_featured?: boolean;
+  data_quality_score?: number;
+  normalized_name?: string;
+  cleaning_notes?: string;
 };

@@ -236,6 +236,7 @@ async function fetchAttractions(): Promise<Attraction[]> {
       closing_time,
       created_at
     FROM attractions
+    WHERE COALESCE(is_active, true) = true
     ORDER BY id ASC`
   );
 
