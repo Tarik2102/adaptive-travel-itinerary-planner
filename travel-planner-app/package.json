@@ -6,9 +6,11 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "import:pois": "tsx scripts/import-sarajevo-pois.ts"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "leaflet": "^1.9.4",
     "next": "16.2.6",
     "pg": "^8.21.0",
@@ -25,6 +27,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }
