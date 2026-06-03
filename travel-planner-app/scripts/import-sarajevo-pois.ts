@@ -74,6 +74,22 @@ const OVERPASS_ENDPOINTS = [
 // After testing, you can increase it.
 const MAX_POIS_TO_IMPORT = 250;
 
+const CATEGORY_IMPORT_QUOTAS: Record<string, number> = {
+  Food: 45,
+  Cafe: 30,
+  History: 70,
+  Culture: 50,
+  Museum: 35,
+  Religion: 35,
+  Nature: 35,
+  Viewpoint: 30,
+  Architecture: 30,
+  Sport: 25,
+  Entertainment: 25,
+  Shopping: 20,
+  "War History": 25,
+};
+
 function buildOverpassQuery() {
   const { south, west, north, east } = SARAJEVO_BBOX;
   const bbox = `${south},${west},${north},${east}`;
@@ -432,6 +448,72 @@ function calculatePopularityScore(tags: OsmTags): number {
   return Math.min(score, 10);
 }
 
+function sortPoisByImportQuality(pois: NormalizedPoi[]): NormalizedPoi[] {
+  return [...pois].sort((a, b) => {
+    const popularityDifference = b.popularityScore - a.popularityScore;
+
+    if (popularityDifference !== 0) {
+      return popularityDifference;
+    }
+
+    const wikidataDifference = Number(Boolean(b.wikidataId)) - Number(Boolean(a.wikidataId));
+
+    if (wikidataDifference !== 0) {
+      return wikidataDifference;
+    }
+
+    const websiteDifference = Number(Boolean(b.website)) - Number(Boolean(a.website));
+
+    if (websiteDifference !== 0) {
+      return websiteDifference;
+    }
+
+    const nameDifference = a.name.localeCompare(b.name);
+
+    if (nameDifference !== 0) {
+      return nameDifference;
+    }
+
+    return a.sourceId.localeCompare(b.sourceId);
+  });
+}
+
+function selectBalancedPois(pois: NormalizedPoi[]): NormalizedPoi[] {
+  const poisByCategory = pois.reduce<Record<string, NormalizedPoi[]>>((acc, poi) => {
+    acc[poi.primaryCategory] = acc[poi.primaryCategory] || [];
+    acc[poi.primaryCategory].push(poi);
+    return acc;
+  }, {});
+
+  const selected: NormalizedPoi[] = [];
+  const selectedSourceIds = new Set<string>();
+
+  for (const [category, quota] of Object.entries(CATEGORY_IMPORT_QUOTAS)) {
+    const categoryPois = sortPoisByImportQuality(poisByCategory[category] || []);
+    const quotaSelection = categoryPois.slice(0, quota);
+
+    for (const poi of quotaSelection) {
+      selected.push(poi);
+      selectedSourceIds.add(poi.sourceId);
+    }
+  }
+
+  if (selected.length < MAX_POIS_TO_IMPORT) {
+    const remainingPois = sortPoisByImportQuality(
+      pois.filter((poi) => !selectedSourceIds.has(poi.sourceId))
+    );
+    const remainingSlots = MAX_POIS_TO_IMPORT - selected.length;
+
+    selected.push(...remainingPois.slice(0, remainingSlots));
+  }
+
+  if (selected.length > MAX_POIS_TO_IMPORT) {
+    return sortPoisByImportQuality(selected).slice(0, MAX_POIS_TO_IMPORT);
+  }
+
+  return selected;
+}
+
 async function fetchPoisFromOverpass(): Promise<OsmElement[]> {
   {
     const query = buildOverpassQuery().trim();
@@ -588,12 +670,14 @@ async function main() {
 
   console.log(`Raw OSM elements received: ${elements.length}`);
 
-  const normalized = elements
+  const allNormalized = elements
     .map(normalizeElement)
-    .filter((poi): poi is NormalizedPoi => poi !== null)
-    .slice(0, MAX_POIS_TO_IMPORT);
+    .filter((poi): poi is NormalizedPoi => poi !== null);
 
-  console.log(`Valid POIs after normalization: ${normalized.length}`);
+  const normalized = selectBalancedPois(allNormalized);
+
+  console.log(`Valid POIs before balancing: ${allNormalized.length}`);
+  console.log(`Selected POIs after balancing: ${normalized.length}`);
 
   const categoryCounts = normalized.reduce<Record<string, number>>((acc, poi) => {
     acc[poi.primaryCategory] = (acc[poi.primaryCategory] || 0) + 1;
