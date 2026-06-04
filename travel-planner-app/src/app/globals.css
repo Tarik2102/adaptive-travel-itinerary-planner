@@ -549,34 +549,103 @@ code {
   font-weight: 800;
 }
 
-.interest-grid {
+.interest-groups {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 12px;
 }
 
-.interest-option {
-  position: relative;
-  display: block;
-}
-
-.interest-checkbox {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.interest-option span {
-  display: block;
+.interest-group {
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 11px 12px;
+  background: #f9fcfd;
+}
+
+.interest-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  padding: 8px 12px;
+  color: var(--foreground);
+  background: transparent;
+  font-weight: 800;
+  text-align: left;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.interest-group-toggle:hover {
+  color: var(--primary-strong);
+  background: var(--surface-soft);
+}
+
+.interest-group-title {
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.interest-group-meta {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.interest-group-count {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.interest-group-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--primary-strong);
+  background: var(--surface);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.interest-group-panel {
+  border-top: 1px solid var(--line);
+  padding: 10px;
+  background: #ffffff;
+}
+
+.interest-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.interest-chip {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
   color: var(--muted);
   background: #f9fcfd;
+  font-size: 0.85rem;
   font-weight: 700;
+  line-height: 1.2;
   text-align: center;
+  overflow-wrap: anywhere;
   transition:
     border-color 180ms ease,
     background-color 180ms ease,
@@ -584,14 +653,19 @@ code {
     box-shadow 180ms ease;
 }
 
-.interest-checkbox:checked + span {
+.interest-chip:hover {
+  border-color: var(--primary);
+}
+
+.interest-chip-selected {
   border-color: rgba(15, 143, 113, 0.55);
   color: #075f4a;
   background: var(--emerald-soft);
   box-shadow: inset 0 0 0 1px rgba(15, 143, 113, 0.08);
 }
 
-.interest-checkbox:focus-visible + span,
+.interest-group-toggle:focus-visible,
+.interest-chip:focus-visible,
 .field input:focus,
 .field select:focus,
 .button:focus-visible,
@@ -600,6 +674,14 @@ code {
 .api-link-card:focus-visible {
   outline: 3px solid rgba(15, 103, 177, 0.22);
   outline-offset: 2px;
+}
+
+.selected-interest-summary {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .form-grid {
@@ -1248,7 +1330,6 @@ code {
     width: 100%;
   }
 
-  .interest-grid,
   .attraction-meta,
   .itinerary-meta {
     grid-template-columns: 1fr;
