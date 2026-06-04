@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { ItineraryApiResponse, ItineraryPlan } from "@/types/itinerary";
 import {
+  interestGroups,
   travelInterestOptions,
   type BudgetLevel,
   type PlannerPreferences,
@@ -28,10 +29,6 @@ const autoRegenerationDelayMs = 1000;
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 type SubmissionMode = "manual" | "auto";
-
-function formatOption(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
 
 function isValidPreferenceInput(preferences: PlannerPreferences) {
   if (
@@ -66,11 +63,15 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [showInterestValidation, setShowInterestValidation] = useState(false);
   const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
+  const [openInterestGroups, setOpenInterestGroups] = useState<string[]>([
+    interestGroups[0].label,
+  ]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastRequestKeyRef = useRef<string | null>(null);
   const activeRequestIdRef = useRef(0);
   const requestSequenceRef = useRef(0);
   const allInterestsSelected = interests.length === travelInterestOptions.length;
+  const selectedInterestSummary = interests.join(", ");
   const interestValidationError =
     showInterestValidation && interests.length === 0
       ? interestValidationMessage
@@ -107,6 +108,19 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
 
     setInterests(nextInterests);
     handlePreferencesChanged();
+  }
+
+  function toggleInterestGroup(groupLabel: string) {
+    setOpenInterestGroups((currentGroups) =>
+      currentGroups.includes(groupLabel)
+        ? currentGroups.filter((label) => label !== groupLabel)
+        : [...currentGroups, groupLabel]
+    );
+  }
+
+  function getSelectedGroupCount(groupInterests: readonly TravelInterest[]) {
+    return groupInterests.filter((interest) => interests.includes(interest))
+      .length;
   }
 
   function handleInterestBulkToggle() {
@@ -277,6 +291,7 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
     setTransportMode("walking");
     setPreferredPace("moderate");
     setMaxAttractions(5);
+    setOpenInterestGroups([interestGroups[0].label]);
     setError(null);
     setShowInterestValidation(false);
     setHasGeneratedItinerary(false);
@@ -312,19 +327,67 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
           </button>
         </div>
 
-        <div className="interest-grid">
-          {travelInterestOptions.map((interest) => (
-            <label className="interest-option" key={interest}>
-              <input
-                type="checkbox"
-                className="interest-checkbox"
-                checked={interests.includes(interest)}
-                onChange={() => toggleInterest(interest)}
-              />
-              <span>{formatOption(interest)}</span>
-            </label>
-          ))}
+        <div className="interest-groups">
+          {interestGroups.map((group) => {
+            const isOpen = openInterestGroups.includes(group.label);
+            const selectedCount = getSelectedGroupCount(group.interests);
+            const groupPanelId = `interest-group-${group.label
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")}`;
+
+            return (
+              <section className="interest-group" key={group.label}>
+                <button
+                  type="button"
+                  className="interest-group-toggle"
+                  aria-expanded={isOpen}
+                  aria-controls={groupPanelId}
+                  onClick={() => toggleInterestGroup(group.label)}
+                >
+                  <span className="interest-group-title">{group.label}</span>
+                  <span className="interest-group-meta">
+                    <span className="interest-group-count">
+                      {selectedCount} selected
+                    </span>
+                    <span className="interest-group-indicator" aria-hidden="true">
+                      {isOpen ? "-" : "+"}
+                    </span>
+                  </span>
+                </button>
+
+                {isOpen ? (
+                  <div className="interest-group-panel" id={groupPanelId}>
+                    <div className="interest-chip-grid">
+                      {group.interests.map((interest) => {
+                        const isSelected = interests.includes(interest);
+
+                        return (
+                          <button
+                            type="button"
+                            className={`interest-chip${
+                              isSelected ? " interest-chip-selected" : ""
+                            }`}
+                            aria-pressed={isSelected}
+                            key={interest}
+                            onClick={() => toggleInterest(interest)}
+                          >
+                            {interest}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
         </div>
+
+        {interests.length > 0 ? (
+          <p className="selected-interest-summary">
+            Selected: {selectedInterestSummary}
+          </p>
+        ) : null}
 
         {interestValidationError ? (
           <p className="field-validation" role="alert">
