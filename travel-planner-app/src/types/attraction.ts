@@ -3,6 +3,9 @@ export type Attraction = {
   name: string;
   description: string | null;
   category: string;
+  primary_category?: string | null;
+  secondary_categories?: string[];
+  tags?: string[];
   latitude: string | number;
   longitude: string | number;
   estimated_visit_duration: number;
@@ -15,6 +18,7 @@ export type Attraction = {
   is_active?: boolean;
   is_featured?: boolean;
   data_quality_score?: number;
+  popularity_score?: number;
   normalized_name?: string;
   cleaning_notes?: string;
 };
