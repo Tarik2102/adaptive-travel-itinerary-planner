@@ -1,6 +1,8 @@
-import { createEmptyAdaptation } from "@/lib/adaptation";
+import { createEmptyAdaptation, SARAJEVO_COORDINATES } from "@/lib/adaptation";
 import {
   calculateHaversineDistanceKm,
+  estimateDrivingTimeMinutes,
+  estimateWalkingTimeMinutes,
   getRoute,
   type Coordinates,
 } from "@/lib/routing";
@@ -28,6 +30,27 @@ type OrderedCandidate = {
   originalIndex: number;
 };
 
+type RouteAwareScoredCandidate = OrderedCandidate & {
+  baseScore: number;
+  exceedsHardLimit: boolean;
+  exceedsSoftLimit: boolean;
+  fitsWindow: boolean;
+  selectionScore: number;
+  travelContributionMinutes: number;
+  travelMinutes: number;
+  visitDuration: number;
+};
+
+type RouteAwareSelectionDiagnostics = {
+  penalizedLongLegs: string[];
+  skippedLongWalkingLegs: string[];
+};
+
+type RouteAwareSelectionResult = {
+  candidates: ItineraryCandidate[];
+  diagnostics: RouteAwareSelectionDiagnostics;
+};
+
 type TravelTimeCache = Map<string, number>;
 
 type FeasibilityAdaptationResult = {
@@ -37,13 +60,19 @@ type FeasibilityAdaptationResult = {
 
 const REMOVAL_REASON =
   "Removed lowest-score attraction to keep itinerary feasible.";
+const WALKING_SOFT_LEG_LIMIT_MIN = 30;
+const WALKING_HARD_LEG_LIMIT_MIN = 45;
+const DRIVING_SOFT_LEG_LIMIT_MIN = 35;
+const DRIVING_HARD_LEG_LIMIT_MIN = 60;
+const ROUTE_AWARE_LOG_LIMIT = 8;
 
 export async function adaptItineraryFeasibility(
   preferences: PlannerPreferences,
   candidates: ItineraryCandidate[]
 ): Promise<FeasibilityAdaptationResult> {
   const availableDuration = getAvailableDurationMinutes(preferences);
-  const remainingCandidates = candidates.slice(0, preferences.maxAttractions);
+  const routeAwareSelection = selectRouteAwareCandidates(preferences, candidates);
+  const remainingCandidates = routeAwareSelection.candidates.slice();
   const removedAttractions: RemovedAttraction[] = [];
   let itinerary = await buildScheduledItinerary(
     preferences,
@@ -51,6 +80,12 @@ export async function adaptItineraryFeasibility(
   );
 
   if (itinerary.items.length === 0) {
+    logRouteAwareSelection(
+      preferences,
+      itinerary,
+      routeAwareSelection.diagnostics
+    );
+
     return {
       itinerary: {
         ...itinerary,
@@ -63,6 +98,12 @@ export async function adaptItineraryFeasibility(
   }
 
   if (itinerary.totalDuration <= availableDuration) {
+    logRouteAwareSelection(
+      preferences,
+      itinerary,
+      routeAwareSelection.diagnostics
+    );
+
     return {
       itinerary: {
         ...itinerary,
@@ -98,6 +139,12 @@ export async function adaptItineraryFeasibility(
     ...(removedAttractions.length > 0 ? { removedAttractions } : {}),
     feasibilityStatus: adjustedSuccessfully ? "adjusted" : "not_feasible",
   });
+
+  logRouteAwareSelection(
+    preferences,
+    itinerary,
+    routeAwareSelection.diagnostics
+  );
 
   return {
     itinerary: {
@@ -200,6 +247,354 @@ export function calculateTotalItineraryDuration(
   totalTravelTime: number
 ): number {
   return totalVisitTime + totalTravelTime;
+}
+
+function selectRouteAwareCandidates(
+  preferences: PlannerPreferences,
+  candidates: ItineraryCandidate[]
+): RouteAwareSelectionResult {
+  const remainingCandidates: OrderedCandidate[] = candidates.map(
+    (candidate, originalIndex) => ({
+      candidate,
+      originalIndex,
+    })
+  );
+  const selectedCandidates: ItineraryCandidate[] = [];
+  const diagnostics: RouteAwareSelectionDiagnostics = {
+    penalizedLongLegs: [],
+    skippedLongWalkingLegs: [],
+  };
+  const availableDuration = getAvailableDurationMinutes(preferences);
+  let currentLocation = getRouteAwareStartLocation(preferences);
+  let currentStopName = getRouteAwareStartName(preferences);
+  let hasPreviousSelectedStop = hasValidPreferenceStartLocation(preferences);
+  let selectedDuration = 0;
+
+  while (
+    selectedCandidates.length < preferences.maxAttractions &&
+    remainingCandidates.length > 0
+  ) {
+    const scoredCandidates = scoreRouteAwareCandidates(
+      remainingCandidates,
+      currentLocation,
+      preferences,
+      availableDuration,
+      selectedDuration,
+      hasPreviousSelectedStop
+    );
+    const windowFeasibleCandidates = scoredCandidates.some(
+      (candidate) => candidate.fitsWindow
+    )
+      ? scoredCandidates.filter((candidate) => candidate.fitsWindow)
+      : scoredCandidates;
+    const routeFeasibleCandidates = getRouteFeasibleCandidates(
+      windowFeasibleCandidates,
+      preferences.transportMode,
+      diagnostics,
+      currentStopName
+    );
+    const bestCandidate = routeFeasibleCandidates.reduce(
+      findBetterRouteAwareCandidate
+    );
+
+    if (bestCandidate.exceedsSoftLimit) {
+      recordDiagnostic(
+        diagnostics.penalizedLongLegs,
+        formatLegDiagnostic(
+          currentStopName,
+          bestCandidate.candidate.attraction.name,
+          bestCandidate.travelMinutes,
+          preferences.transportMode
+        )
+      );
+    }
+
+    selectedCandidates.push(bestCandidate.candidate);
+    selectedDuration +=
+      bestCandidate.travelContributionMinutes + bestCandidate.visitDuration;
+    currentLocation = getAttractionCoordinates(bestCandidate.candidate.attraction);
+    currentStopName = bestCandidate.candidate.attraction.name;
+    hasPreviousSelectedStop = true;
+    remainingCandidates.splice(
+      remainingCandidates.findIndex(
+        (candidate) => candidate.originalIndex === bestCandidate.originalIndex
+      ),
+      1
+    );
+  }
+
+  return {
+    candidates: selectedCandidates,
+    diagnostics,
+  };
+}
+
+function scoreRouteAwareCandidates(
+  candidates: OrderedCandidate[],
+  currentLocation: Coordinates,
+  preferences: PlannerPreferences,
+  availableDuration: number,
+  selectedDuration: number,
+  hasPreviousSelectedStop: boolean
+): RouteAwareScoredCandidate[] {
+  return candidates.map((candidate) => {
+    const travelMinutes = estimateTravelTimeMinutes(
+      calculateDistanceKm(
+        currentLocation,
+        getAttractionCoordinates(candidate.candidate.attraction)
+      ),
+      preferences.transportMode
+    );
+    const visitDuration = normalizeVisitDuration(
+      candidate.candidate.attraction.estimated_visit_duration
+    );
+    const travelContributionMinutes = hasPreviousSelectedStop
+      ? travelMinutes
+      : 0;
+    const routeAssessment = getRoutePenaltyAssessment(
+      travelMinutes,
+      preferences.transportMode
+    );
+    const fitsWindow =
+      selectedDuration + travelContributionMinutes + visitDuration <=
+      availableDuration;
+    const windowPenalty = fitsWindow ? 0 : 0.45;
+    const baseScore = getCandidateSelectionBaseScore(candidate.candidate);
+
+    return {
+      ...candidate,
+      baseScore,
+      exceedsHardLimit: routeAssessment.exceedsHardLimit,
+      exceedsSoftLimit: routeAssessment.exceedsSoftLimit,
+      fitsWindow,
+      selectionScore: baseScore - routeAssessment.penalty - windowPenalty,
+      travelContributionMinutes,
+      travelMinutes,
+      visitDuration,
+    };
+  });
+}
+
+function getRouteFeasibleCandidates(
+  candidates: RouteAwareScoredCandidate[],
+  transportMode: TransportMode,
+  diagnostics: RouteAwareSelectionDiagnostics,
+  currentStopName: string
+): RouteAwareScoredCandidate[] {
+  if (transportMode !== "walking") {
+    return candidates;
+  }
+
+  const compactWalkingCandidates = candidates.filter(
+    (candidate) => !candidate.exceedsHardLimit
+  );
+
+  if (compactWalkingCandidates.length === 0) {
+    return candidates;
+  }
+
+  // Walking itineraries should feel walkable, not just mathematically possible
+  // inside an all-day window, so very long legs are skipped when compact
+  // alternatives exist.
+  candidates
+    .filter((candidate) => candidate.exceedsHardLimit)
+    .forEach((candidate) => {
+      recordDiagnostic(
+        diagnostics.skippedLongWalkingLegs,
+        formatLegDiagnostic(
+          currentStopName,
+          candidate.candidate.attraction.name,
+          candidate.travelMinutes,
+          transportMode
+        )
+      );
+    });
+
+  return compactWalkingCandidates;
+}
+
+function findBetterRouteAwareCandidate(
+  bestCandidate: RouteAwareScoredCandidate,
+  candidate: RouteAwareScoredCandidate
+): RouteAwareScoredCandidate {
+  if (candidate.selectionScore > bestCandidate.selectionScore) {
+    return candidate;
+  }
+
+  if (candidate.selectionScore < bestCandidate.selectionScore) {
+    return bestCandidate;
+  }
+
+  if (candidate.travelMinutes < bestCandidate.travelMinutes) {
+    return candidate;
+  }
+
+  if (candidate.travelMinutes > bestCandidate.travelMinutes) {
+    return bestCandidate;
+  }
+
+  return candidate.originalIndex < bestCandidate.originalIndex
+    ? candidate
+    : bestCandidate;
+}
+
+function getCandidateSelectionBaseScore(candidate: ItineraryCandidate): number {
+  const attraction = candidate.attraction;
+  const qualityScore = normalizeTenPointScore(attraction.data_quality_score);
+  const popularityScore = normalizeTenPointScore(attraction.popularity_score);
+  const ratingScore =
+    attraction.rating === null
+      ? 0
+      : clamp(toFiniteNumber(attraction.rating, 0), 0, 5) / 5;
+  const featuredBonus = attraction.is_featured ? 0.08 : 0;
+
+  return (
+    candidate.rank.score * 0.72 +
+    qualityScore * 0.12 +
+    popularityScore * 0.06 +
+    ratingScore * 0.04 +
+    featuredBonus
+  );
+}
+
+function getRoutePenaltyAssessment(
+  travelMinutes: number,
+  transportMode: TransportMode
+): {
+  exceedsHardLimit: boolean;
+  exceedsSoftLimit: boolean;
+  penalty: number;
+} {
+  const limits = getTransportLegLimits(transportMode);
+
+  if (travelMinutes <= limits.softLimit) {
+    return {
+      exceedsHardLimit: false,
+      exceedsSoftLimit: false,
+      penalty: 0,
+    };
+  }
+
+  const softRange = Math.max(1, limits.hardLimit - limits.softLimit);
+  const softOverage = Math.min(travelMinutes, limits.hardLimit) - limits.softLimit;
+  const hardOverage = Math.max(0, travelMinutes - limits.hardLimit);
+
+  // Driving can reasonably connect farther Sarajevo POIs, so its penalty ramps
+  // more gently than walking and does not skip hard-limit legs.
+  const penalty =
+    transportMode === "walking"
+      ? (softOverage / softRange) * 0.25 +
+        (hardOverage / limits.hardLimit) * 0.9
+      : (softOverage / softRange) * 0.12 +
+        (hardOverage / limits.hardLimit) * 0.35;
+
+  return {
+    exceedsHardLimit: travelMinutes > limits.hardLimit,
+    exceedsSoftLimit: true,
+    penalty,
+  };
+}
+
+function getTransportLegLimits(transportMode: TransportMode): {
+  hardLimit: number;
+  softLimit: number;
+} {
+  return transportMode === "walking"
+    ? {
+        hardLimit: WALKING_HARD_LEG_LIMIT_MIN,
+        softLimit: WALKING_SOFT_LEG_LIMIT_MIN,
+      }
+    : {
+        hardLimit: DRIVING_HARD_LEG_LIMIT_MIN,
+        softLimit: DRIVING_SOFT_LEG_LIMIT_MIN,
+      };
+}
+
+function estimateTravelTimeMinutes(
+  distanceKm: number,
+  transportMode: TransportMode
+): number {
+  return transportMode === "walking"
+    ? estimateWalkingTimeMinutes(distanceKm)
+    : estimateDrivingTimeMinutes(distanceKm);
+}
+
+function getRouteAwareStartLocation(
+  preferences: PlannerPreferences
+): Coordinates {
+  return getPreferenceStartLocation(preferences) ?? SARAJEVO_COORDINATES;
+}
+
+function getRouteAwareStartName(preferences: PlannerPreferences): string {
+  return hasValidPreferenceStartLocation(preferences)
+    ? "selected start location"
+    : "Sarajevo center";
+}
+
+function hasValidPreferenceStartLocation(preferences: PlannerPreferences): boolean {
+  return getPreferenceStartLocation(preferences) !== undefined;
+}
+
+function logRouteAwareSelection(
+  preferences: PlannerPreferences,
+  itinerary: GeneratedItinerary,
+  diagnostics: RouteAwareSelectionDiagnostics
+): void {
+  console.log("Route-aware itinerary selection:", {
+    approximateTravelMinutesBetweenStops:
+      getApproximateTravelMinutesBetweenStops(
+        itinerary.items.map((item) => item.attraction),
+        preferences.transportMode
+      ),
+    interests: preferences.interests,
+    penalizedLongLegs: diagnostics.penalizedLongLegs,
+    selectedAttractions: itinerary.items.map((item) => item.attraction.name),
+    skippedLongWalkingLegs: diagnostics.skippedLongWalkingLegs,
+    transportMode: preferences.transportMode,
+  });
+}
+
+function getApproximateTravelMinutesBetweenStops(
+  attractions: Attraction[],
+  transportMode: TransportMode
+): number[] {
+  return attractions.slice(1).map((attraction, index) =>
+    estimateTravelTimeMinutes(
+      calculateDistanceKm(
+        getAttractionCoordinates(attractions[index]),
+        getAttractionCoordinates(attraction)
+      ),
+      transportMode
+    )
+  );
+}
+
+function formatLegDiagnostic(
+  fromName: string,
+  toName: string,
+  travelMinutes: number,
+  transportMode: TransportMode
+): string {
+  return `${fromName} -> ${toName}: ${travelMinutes} min ${transportMode}`;
+}
+
+function recordDiagnostic(diagnostics: string[], message: string): void {
+  if (
+    diagnostics.length >= ROUTE_AWARE_LOG_LIMIT ||
+    diagnostics.includes(message)
+  ) {
+    return;
+  }
+
+  diagnostics.push(message);
+}
+
+function normalizeTenPointScore(value: number | undefined): number {
+  if (value === undefined) {
+    return 0;
+  }
+
+  return clamp(toFiniteNumber(value, 0), 0, 10) / 10;
 }
 
 async function orderStopsByNearestNeighborWithCache(
@@ -523,4 +918,8 @@ function minutesToTime(value: number): string {
 function toFiniteNumber(value: string | number, fallback: number): number {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : fallback;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }

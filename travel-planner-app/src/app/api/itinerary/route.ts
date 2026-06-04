@@ -71,6 +71,9 @@ type AttractionRow = QueryResultRow & {
   name: string;
   description: string | null;
   category: string;
+  primary_category: string | null;
+  secondary_categories: string[] | string | null;
+  tags: string[] | string | null;
   latitude: string | number;
   longitude: string | number;
   estimated_visit_duration: number;
@@ -79,6 +82,11 @@ type AttractionRow = QueryResultRow & {
   indoor_outdoor: string | null;
   opening_time: string | null;
   closing_time: string | null;
+  is_featured: boolean | null;
+  data_quality_score: string | number | null;
+  popularity_score: string | number | null;
+  normalized_name: string | null;
+  cleaning_notes: string | null;
   created_at?: string | Date | null;
 };
 
@@ -87,12 +95,18 @@ type RecommendationAttractionPayload = {
   name: string;
   description: string | null;
   category: string;
+  primary_category: string | null;
+  secondary_categories: string[];
+  tags: string[];
   latitude: number;
   longitude: number;
   estimated_visit_duration: number;
   rating: number | null;
   price_level: string | null;
   indoor_outdoor: string | null;
+  is_featured: boolean;
+  data_quality_score: number | null;
+  popularity_score: number | null;
 };
 
 type RecommendationPreferencesPayload = Omit<
@@ -226,6 +240,9 @@ async function fetchAttractions(): Promise<Attraction[]> {
       name,
       description,
       category,
+      primary_category,
+      secondary_categories,
+      tags,
       latitude,
       longitude,
       estimated_visit_duration,
@@ -234,6 +251,11 @@ async function fetchAttractions(): Promise<Attraction[]> {
       indoor_outdoor,
       opening_time,
       closing_time,
+      is_featured,
+      data_quality_score,
+      popularity_score,
+      normalized_name,
+      cleaning_notes,
       created_at
     FROM attractions
     WHERE COALESCE(is_active, true) = true
@@ -249,6 +271,9 @@ function normalizeAttraction(row: AttractionRow): Attraction {
     name: row.name,
     description: row.description,
     category: row.category,
+    primary_category: row.primary_category,
+    secondary_categories: normalizeTextArray(row.secondary_categories),
+    tags: normalizeTextArray(row.tags),
     latitude: toFiniteNumber(row.latitude, 0),
     longitude: toFiniteNumber(row.longitude, 0),
     estimated_visit_duration: row.estimated_visit_duration,
@@ -257,6 +282,17 @@ function normalizeAttraction(row: AttractionRow): Attraction {
     indoor_outdoor: row.indoor_outdoor,
     opening_time: row.opening_time,
     closing_time: row.closing_time,
+    is_featured: row.is_featured ?? false,
+    data_quality_score:
+      row.data_quality_score === null
+        ? undefined
+        : toFiniteNumber(row.data_quality_score, 0),
+    popularity_score:
+      row.popularity_score === null
+        ? undefined
+        : toFiniteNumber(row.popularity_score, 0),
+    normalized_name: row.normalized_name ?? undefined,
+    cleaning_notes: row.cleaning_notes ?? undefined,
     created_at: row.created_at ? String(row.created_at) : undefined,
   };
 }
@@ -329,12 +365,18 @@ function toRecommendationPayload(
     name: attraction.name,
     description: attraction.description,
     category: attraction.category,
+    primary_category: attraction.primary_category ?? null,
+    secondary_categories: attraction.secondary_categories ?? [],
+    tags: attraction.tags ?? [],
     latitude: toFiniteNumber(attraction.latitude, 0),
     longitude: toFiniteNumber(attraction.longitude, 0),
     estimated_visit_duration: attraction.estimated_visit_duration,
     rating: attraction.rating === null ? null : toFiniteNumber(attraction.rating, 0),
     price_level: attraction.price_level,
     indoor_outdoor: attraction.indoor_outdoor,
+    is_featured: attraction.is_featured ?? false,
+    data_quality_score: attraction.data_quality_score ?? null,
+    popularity_score: attraction.popularity_score ?? null,
   };
 }
 
@@ -484,6 +526,24 @@ function isValidCoordinates(coordinates: Coordinates): boolean {
 function timeToMinutes(value: string): number {
   const [hour, minute] = value.split(":").map(Number);
   return hour * 60 + minute;
+}
+
+function normalizeTextArray(value: string[] | string | null): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return [];
+  }
+
+  return value
+    .replace(/^{|}$/g, "")
+    .split(",")
+    .map((item) => item.replace(/^"|"$/g, "").trim())
+    .filter((item) => item.length > 0);
 }
 
 function toFiniteNumber(value: string | number, fallback: number): number {

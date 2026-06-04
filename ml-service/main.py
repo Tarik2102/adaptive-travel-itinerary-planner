@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 from typing import Literal
 
 from fastapi import FastAPI
@@ -35,12 +36,18 @@ class Attraction(BaseModel):
     name: str
     description: str | None = None
     category: str
+    primary_category: str | None = None
+    secondary_categories: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     latitude: float
     longitude: float
     estimated_visit_duration: int = Field(default=60, ge=1)
     rating: float | None = Field(default=None, ge=0, le=5)
     price_level: str | None = None
     indoor_outdoor: str | None = None
+    is_featured: bool = False
+    data_quality_score: float | None = Field(default=None, ge=0, le=10)
+    popularity_score: float | None = Field(default=None, ge=0, le=10)
 
 
 class RecommendRequest(BaseModel):
@@ -62,8 +69,93 @@ class RecommendResponse(BaseModel):
 app = FastAPI(title="Travel Planner Recommendation Service", version="0.1.0")
 
 
+INTEREST_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "history": (
+        "history",
+        "historic",
+        "heritage",
+        "old town",
+        "ottoman",
+        "austro hungarian",
+        "war history",
+        "siege",
+        "memorial",
+        "monument",
+    ),
+    "war_history": (
+        "war history",
+        "war",
+        "siege",
+        "memorial",
+        "tunnel",
+        "battle",
+        "conflict",
+        "defense",
+    ),
+    "culture": (
+        "culture",
+        "cultural",
+        "heritage",
+        "market",
+        "traditional",
+        "gallery",
+        "public art",
+    ),
+    "nature": (
+        "nature",
+        "park",
+        "green space",
+        "viewpoint",
+        "panorama",
+        "mountain",
+        "river",
+        "outdoor",
+    ),
+    "architecture": (
+        "architecture",
+        "architectural",
+        "building",
+        "bridge",
+        "city hall",
+        "mosque",
+        "fountain",
+        "facade",
+        "vijecnica",
+    ),
+    "religion": (
+        "religion",
+        "religious",
+        "mosque",
+        "church",
+        "synagogue",
+        "place of worship",
+        "islamic",
+        "orthodox",
+        "catholic",
+        "jewish",
+    ),
+    "museum": (
+        "museum",
+        "exhibition",
+        "gallery",
+        "education",
+        "memorial museum",
+        "collection",
+    ),
+}
+
+
+def normalize_search_text(value: str | None) -> str:
+    normalized = unicodedata.normalize("NFKD", (value or "").strip().lower())
+    without_marks = "".join(
+        character for character in normalized if not unicodedata.combining(character)
+    )
+    cleaned = without_marks.replace("_", " ").replace("-", " ")
+    return " ".join(cleaned.split())
+
+
 def normalize_label(value: str | None) -> str:
-    cleaned = (value or "unknown").strip().lower()
+    cleaned = normalize_search_text(value or "unknown")
     return cleaned.replace(" ", "_") or "unknown"
 
 
@@ -94,6 +186,98 @@ def scaled_rating(rating: float | None) -> float:
     return max(0.0, min(rating, 5.0)) / 5
 
 
+def scaled_ten_point_score(score: float | None) -> float:
+    if score is None:
+        return 0.0
+    return max(0.0, min(score, 10.0)) / 10
+
+
+def attraction_metadata_values(attraction: Attraction) -> list[str]:
+    return [
+        value
+        for value in [
+            attraction.category,
+            attraction.primary_category,
+            *attraction.secondary_categories,
+            *attraction.tags,
+        ]
+        if value
+    ]
+
+
+def labels_from_values(values: list[str | None]) -> set[str]:
+    return {normalize_label(value) for value in values if value}
+
+
+def attraction_search_text(attraction: Attraction) -> str:
+    # Secondary categories and tags are included because OSM-imported POIs often
+    # carry their best interest signal there rather than in the broad category.
+    values = [
+        attraction.name,
+        attraction.description,
+        *attraction_metadata_values(attraction),
+    ]
+    return " ".join(normalize_search_text(value) for value in values if value)
+
+
+def contains_search_term(search_text: str, term: str) -> bool:
+    if not term:
+        return False
+
+    if len(term) <= 3:
+        return f" {term} " in f" {search_text} "
+
+    return term in search_text
+
+
+def expand_interest_terms(interest: str) -> set[str]:
+    normalized_interest = normalize_search_text(interest)
+    label = normalize_label(interest)
+    terms = {normalized_interest, label.replace("_", " ")}
+    terms.update(INTEREST_KEYWORDS.get(label, ()))
+
+    if "war" in normalized_interest and "history" in normalized_interest:
+        terms.update(INTEREST_KEYWORDS["war_history"])
+
+    return {normalize_search_text(term) for term in terms if term}
+
+
+def expand_interest_labels(interest: str) -> set[str]:
+    return {normalize_label(term) for term in expand_interest_terms(interest)}
+
+
+def attraction_interest_labels(attraction: Attraction) -> set[str]:
+    return labels_from_values(attraction_metadata_values(attraction))
+
+
+def interest_match_strength(preferences: Preferences, attraction: Attraction) -> float:
+    if not preferences.interests:
+        return 0.0
+
+    primary_labels = labels_from_values(
+        [attraction.category, attraction.primary_category]
+    )
+    secondary_labels = labels_from_values(attraction.secondary_categories)
+    tag_labels = labels_from_values(attraction.tags)
+    search_text = attraction_search_text(attraction)
+    strengths: list[float] = []
+
+    for interest in preferences.interests:
+        interest_labels = expand_interest_labels(interest)
+        interest_terms = expand_interest_terms(interest)
+
+        if primary_labels & interest_labels:
+            strengths.append(1.0)
+        elif secondary_labels & interest_labels:
+            strengths.append(0.9)
+        elif tag_labels & interest_labels:
+            strengths.append(0.8)
+        elif any(contains_search_term(search_text, term) for term in interest_terms):
+            strengths.append(0.65)
+
+    return max(strengths, default=0.0)
+
+
 def affordable_price_features(budget_level: BudgetLevel) -> dict[str, float]:
     budget_rank = PRICE_RANK[budget_level]
     features: dict[str, float] = {}
@@ -116,18 +300,41 @@ def is_budget_match(budget_level: BudgetLevel, price_level: str | None) -> bool:
 
 def build_attraction_features(attraction: Attraction) -> dict[str, float]:
     category = normalize_label(attraction.category)
+    primary_category = normalize_label(attraction.primary_category)
     price_level = normalize_label(attraction.price_level)
     setting = normalize_label(attraction.indoor_outdoor)
     duration = duration_bucket(attraction.estimated_visit_duration)
-
-    return {
+    features: dict[str, float] = {
         f"category:{category}": 1.0,
+        f"primary_category:{primary_category}": 1.0,
         f"price:{price_level}": 1.0,
         f"setting:{setting}": 1.0,
         f"duration:{duration}": 1.0,
         "rating_scaled": scaled_rating(attraction.rating),
         "duration_scaled": scaled_duration(attraction.estimated_visit_duration),
+        "data_quality_scaled": scaled_ten_point_score(attraction.data_quality_score),
+        "popularity_scaled": scaled_ten_point_score(attraction.popularity_score),
+        "featured": 1.0 if attraction.is_featured else 0.0,
     }
+
+    # Secondary categories and tags may be more precise than the broad category
+    # for imported attractions, so expose them on the same interest axis.
+    for label in attraction_interest_labels(attraction):
+        features[f"interest:{label}"] = 1.0
+
+    for label in labels_from_values(attraction.secondary_categories):
+        features[f"secondary_category:{label}"] = 1.0
+
+    for label in labels_from_values(attraction.tags):
+        features[f"tag:{label}"] = 1.0
+
+    search_text = attraction_search_text(attraction)
+    for keywords in INTEREST_KEYWORDS.values():
+        for keyword in keywords:
+            if contains_search_term(search_text, normalize_search_text(keyword)):
+                features[f"interest:{normalize_label(keyword)}"] = 0.65
+
+    return features
 
 
 def build_preference_features(preferences: Preferences) -> dict[str, float]:
@@ -142,19 +349,26 @@ def build_preference_features(preferences: Preferences) -> dict[str, float]:
 
     for interest in preferences.interests:
         features[f"category:{normalize_label(interest)}"] = 1.0
+        for label in expand_interest_labels(interest):
+            features[f"interest:{label}"] = 1.0
 
     features.update(affordable_price_features(preferences.budgetLevel))
     features.update(duration_preference_bucket(preferences.preferredPace))
+    features.update(
+        {
+            "data_quality_scaled": 0.85,
+            "popularity_scaled": 0.75,
+            "featured": 0.6,
+        }
+    )
 
     return features
 
 
 def build_reason(preferences: Preferences, attraction: Attraction) -> str:
     reasons: list[str] = []
-    normalized_interests = {normalize_label(interest) for interest in preferences.interests}
-    category = normalize_label(attraction.category)
 
-    if category in normalized_interests:
+    if interest_match_strength(preferences, attraction) > 0:
         reasons.append("Matches selected interests")
 
     if is_budget_match(preferences.budgetLevel, attraction.price_level):
@@ -178,9 +392,13 @@ def score_attraction(
     normalized_interests = {normalize_label(interest) for interest in preferences.interests}
     category = normalize_label(attraction.category)
     bonus = 0.0
+    metadata_interest_strength = interest_match_strength(preferences, attraction)
 
     if category in normalized_interests:
         bonus += 0.12
+
+    if metadata_interest_strength > 0:
+        bonus += 0.16 * metadata_interest_strength
 
     if is_budget_match(preferences.budgetLevel, attraction.price_level):
         bonus += 0.06
@@ -188,7 +406,13 @@ def score_attraction(
     if attraction.rating is not None and attraction.rating >= 4.5:
         bonus += 0.04
 
-    score = (base_similarity * 0.86) + bonus
+    if attraction.is_featured:
+        bonus += 0.03
+
+    bonus += scaled_ten_point_score(attraction.data_quality_score) * 0.04
+    bonus += scaled_ten_point_score(attraction.popularity_score) * 0.03
+
+    score = (base_similarity * 0.78) + bonus
     return round(min(score, 1.0), 4)
 
 
