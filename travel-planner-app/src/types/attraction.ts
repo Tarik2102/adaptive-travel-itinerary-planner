@@ -21,4 +21,8 @@ export type Attraction = {
   popularity_score?: number;
   normalized_name?: string;
   cleaning_notes?: string;
+  source?: string | null;
+  source_id?: string | null;
+  source_priority?: "osm_primary" | "manual_fallback" | "manual_only";
+  canonical_key?: string;
 };
