@@ -12,6 +12,8 @@ export type RouteGeometry = {
   coordinates: Coordinate[];
 };
 
+export const WALKING_LEG_DISTANCE_THRESHOLD_KM = 0.4;
+
 export type RoutingTransport = "walking" | "driving";
 export type RoutingProvider = "openrouteservice" | "osrm" | "fallback";
 export type RoutingFallbackReason =
@@ -27,11 +29,22 @@ export type RoutingFallbackReason =
   | "request_aborted"
   | "unknown";
 
+export type RouteLeg = {
+  fromIndex: number;
+  toIndex: number;
+  transport: RoutingTransport;
+  distanceKm: number;
+  durationMinutes: number;
+  geometryStartOffset: number;
+};
+
 export type RoutingMetadata = {
   provider: RoutingProvider;
   fallbackReason?: RoutingFallbackReason;
   transport: RoutingTransport;
   geometryPointCount: number;
+  legs?: RouteLeg[];
+  hasMixedModes?: boolean;
 };
 
 export type RoutingResponse = {
@@ -483,6 +496,16 @@ export function buildRoutingMetadata(route: RoutingResponse): RoutingMetadata {
     provider: route.provider,
     transport: route.transport,
   };
+}
+
+export function getLegTransportMode(
+  from: Coordinates,
+  to: Coordinates,
+  preferredTransport: RoutingTransport
+): RoutingTransport {
+  if (preferredTransport === "walking") return "walking";
+  const distKm = calculateHaversineDistanceKm(from, to);
+  return distKm <= WALKING_LEG_DISTANCE_THRESHOLD_KM ? "walking" : preferredTransport;
 }
 
 function buildInsufficientCoordinatesResponse(

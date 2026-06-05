@@ -11,7 +11,12 @@ import {
   useMap,
 } from "react-leaflet";
 import type { ItineraryMapProps } from "@/components/ItineraryMap";
-import type { ItineraryItem, RouteGeometry } from "@/types/itinerary";
+import type {
+  ItineraryItem,
+  RouteLeg,
+  RouteGeometry,
+  RoutingTransport,
+} from "@/types/itinerary";
 import type { TransportMode } from "@/types/preference";
 
 type ItineraryMapStop = {
@@ -166,14 +171,71 @@ function NumberedMarker({ stop }: { stop: ItineraryMapStop }) {
   );
 }
 
-function getRoutePathOptions(transportMode: TransportMode | undefined) {
+function getLegPathOptions(transport: RoutingTransport | TransportMode | undefined) {
   return {
-    color: transportMode === "walking" ? "#0b7a75" : "#0f67b1",
-    dashArray: transportMode === "walking" ? "2 10" : undefined,
+    color: transport === "walking" ? "#0b7a75" : "#0f67b1",
+    dashArray: transport === "walking" ? "2 10" : undefined,
     lineCap: "round" as const,
     opacity: 0.78,
     weight: 4,
   };
+}
+
+type LegPolyline = {
+  key: string;
+  transport: RoutingTransport;
+  positions: [number, number][];
+};
+
+function buildLegPolylines(
+  routeGeometry: RouteGeometry | undefined,
+  legs: RouteLeg[] | undefined,
+  fallbackTransport: TransportMode | undefined,
+  shouldUseRouteGeometry: boolean,
+  stopPositions: [number, number][]
+): LegPolyline[] {
+  const coords = routeGeometry?.coordinates ?? [];
+
+  if (legs && legs.length > 0 && shouldUseRouteGeometry && coords.length >= 2) {
+    return legs.map((leg, i) => {
+      const start = leg.geometryStartOffset;
+      const end =
+        i + 1 < legs.length ? legs[i + 1].geometryStartOffset + 1 : coords.length;
+      const slice = coords.slice(start, end);
+      const positions: [number, number][] = slice.flatMap((c) => {
+        const lat = toFiniteCoordinate(c.lat);
+        const lng = toFiniteCoordinate(c.lng);
+        if (
+          lat === null ||
+          lng === null ||
+          !isValidLatitude(lat) ||
+          !isValidLongitude(lng)
+        ) {
+          return [];
+        }
+        return [[lat, lng]] as [number, number][];
+      });
+      return {
+        key: `leg-${leg.fromIndex}-${leg.toIndex}-${leg.transport}`,
+        transport: leg.transport,
+        positions,
+      };
+    });
+  }
+
+  // Fallback: single polyline
+  const positions: [number, number][] =
+    shouldUseRouteGeometry && coords.length >= 2
+      ? buildRouteGeometryPositions(routeGeometry)
+      : stopPositions;
+
+  return [
+    {
+      key: "single",
+      transport: fallbackTransport ?? "driving",
+      positions,
+    },
+  ];
 }
 
 export function ItineraryMapClient({
@@ -194,30 +256,32 @@ export function ItineraryMapClient({
   const shouldUseRouteGeometry = routing
     ? routing.provider !== "fallback"
     : geometryPositions.length >= 2;
-  const routePositions = useMemo(
+  const legPolylines = useMemo(
     () =>
-      shouldUseRouteGeometry && geometryPositions.length >= 2
-        ? geometryPositions
-        : stopPositions,
-    [geometryPositions, shouldUseRouteGeometry, stopPositions]
+      buildLegPolylines(
+        routeGeometry,
+        routing?.legs,
+        transportMode,
+        shouldUseRouteGeometry,
+        stopPositions
+      ),
+    [routeGeometry, routing, transportMode, shouldUseRouteGeometry, stopPositions]
   );
   const boundsPositions = useMemo(
-    () => [...routePositions, ...stopPositions],
-    [routePositions, stopPositions]
-  );
-  const routePathOptions = useMemo(
-    () => getRoutePathOptions(transportMode),
-    [transportMode]
+    () => [
+      ...legPolylines.flatMap((l) => l.positions),
+      ...stopPositions,
+    ],
+    [legPolylines, stopPositions]
   );
   const routeKey = useMemo(
     () =>
       [
         routing?.provider ?? "unknown",
-        routing?.geometryPointCount ?? routePositions.length,
+        routing?.geometryPointCount ?? legPolylines.length,
         transportMode ?? "unknown",
-        JSON.stringify(routePositions),
       ].join(":"),
-    [routePositions, routing, transportMode]
+    [legPolylines.length, routing, transportMode]
   );
 
   if (stops.length === 0) {
@@ -245,13 +309,15 @@ export function ItineraryMapClient({
           url={TILE_LAYER_URL}
         />
         <FitMapBounds positions={boundsPositions} />
-        {routePositions.length > 1 ? (
-          <Polyline
-            key={routeKey}
-            pathOptions={routePathOptions}
-            positions={routePositions}
-          />
-        ) : null}
+        {legPolylines.map((leg) =>
+          leg.positions.length > 1 ? (
+            <Polyline
+              key={`${routeKey}:${leg.key}`}
+              pathOptions={getLegPathOptions(leg.transport)}
+              positions={leg.positions}
+            />
+          ) : null
+        )}
         {stops.map((stop) => (
           <NumberedMarker key={stop.id} stop={stop} />
         ))}
