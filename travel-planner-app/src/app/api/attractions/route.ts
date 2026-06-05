@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { resolvePreferredAttractions } from "@/lib/attraction-source-priority";
 import { query } from "@/lib/db";
+import type { Attraction } from "@/types/attraction";
 
 export async function GET() {
   try {
-    const attractions = await query(`
+    const rows = await query(`
       SELECT *
       FROM attractions
       WHERE COALESCE(is_active, true) = true
@@ -14,9 +16,11 @@ export async function GET() {
         name ASC
     `);
 
+    const resolved = resolvePreferredAttractions(rows as unknown as Attraction[]);
+
     return NextResponse.json({
       success: true,
-      data: attractions,
+      data: resolved,
     });
   } catch (error) {
     console.error("Database error:", error);

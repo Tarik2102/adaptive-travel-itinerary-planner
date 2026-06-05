@@ -6,6 +6,7 @@ import {
   mergeAdaptations,
   SARAJEVO_COORDINATES,
 } from "@/lib/adaptation";
+import { resolvePreferredAttractions } from "@/lib/attraction-source-priority";
 import { query } from "@/lib/db";
 import {
   adaptItineraryFeasibility,
@@ -85,6 +86,8 @@ type AttractionRow = QueryResultRow & {
   popularity_score: string | number | null;
   normalized_name: string | null;
   cleaning_notes: string | null;
+  source: string | null;
+  source_id: string | null;
   created_at?: string | Date | null;
 };
 
@@ -152,8 +155,9 @@ export async function POST(request: Request) {
 
   try {
     const attractions = await fetchAttractions();
+    const resolvedAttractions = resolvePreferredAttractions(attractions);
 
-    if (attractions.length === 0) {
+    if (resolvedAttractions.length === 0) {
       return NextResponse.json({
         success: true,
         itinerary: {
@@ -171,17 +175,17 @@ export async function POST(request: Request) {
 
     const rankedAttractions = await fetchRankedAttractions(
       preferences,
-      attractions
+      resolvedAttractions
     );
     const weather = await fetchWeatherForAdaptation();
     const weatherAdaptation = applyWeatherAdaptation(
       rankedAttractions,
-      attractions,
+      resolvedAttractions,
       weather,
       preferences.maxAttractions
     );
     const candidates = createItineraryCandidates(
-      attractions,
+      resolvedAttractions,
       weatherAdaptation.rankedAttractions
     );
     const feasibilityAdaptation = await adaptItineraryFeasibility(
@@ -250,6 +254,8 @@ async function fetchAttractions(): Promise<Attraction[]> {
       popularity_score,
       normalized_name,
       cleaning_notes,
+      source,
+      source_id,
       created_at
     FROM attractions
     WHERE COALESCE(is_active, true) = true
@@ -287,6 +293,8 @@ function normalizeAttraction(row: AttractionRow): Attraction {
         : toFiniteNumber(row.popularity_score, 0),
     normalized_name: row.normalized_name ?? undefined,
     cleaning_notes: row.cleaning_notes ?? undefined,
+    source: row.source ?? null,
+    source_id: row.source_id ?? null,
     created_at: row.created_at ? String(row.created_at) : undefined,
   };
 }
