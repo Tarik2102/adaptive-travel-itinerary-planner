@@ -62,6 +62,36 @@ export type AffectedAttraction = AdaptationAttraction & {
   reason: string;
 };
 
+export type TrafficSeverity = "moderate" | "heavy" | "blocked";
+
+export type TrafficSimulationStatus =
+  | "delayed_but_feasible"
+  | "heavy_delay_feasible"
+  | "blocked_reoptimized"
+  | "ignored"
+  | "no_effect";
+
+export type TrafficSimulationInfo = {
+  enabled: boolean;
+  severity: TrafficSeverity;
+  affectedLegIndex: number;
+  affectedSegment: {
+    from: string;
+    to: string;
+  };
+  originalLegTravelTime: number;
+  simulatedLegTravelTime: number;
+  addedDelayMinutes: number;
+  status: TrafficSimulationStatus;
+};
+
+export type TrafficSimulationRequest = {
+  enabled: boolean;
+  severity: TrafficSeverity;
+  affectedLegIndex: number | "auto";
+  delayMinutes?: number;
+};
+
 export type ItineraryAdaptation = {
   applied: boolean;
   reasons: string[];
@@ -70,7 +100,37 @@ export type ItineraryAdaptation = {
   replacedAttractions?: ReplacedAttraction[];
   affectedAttractions?: AffectedAttraction[];
   feasibilityStatus?: AdaptationFeasibilityStatus;
+  trafficSimulation?: TrafficSimulationInfo;
 };
+
+export type TrafficAdaptRequest = {
+  currentItinerary: GeneratedItinerary;
+  preferences: {
+    interests: string[];
+    transport: string;
+    startTime: string;
+    endTime: string;
+    maxStops?: number;
+  };
+  trafficSimulation: TrafficSimulationRequest;
+};
+
+export type TrafficAdaptResponseNoDecision = {
+  trafficDecisionRequired: false;
+  itinerary: GeneratedItinerary;
+  adaptation: ItineraryAdaptation;
+};
+
+export type TrafficAdaptResponseDecision = {
+  trafficDecisionRequired: true;
+  currentItinerary: GeneratedItinerary;
+  proposedItinerary: GeneratedItinerary;
+  adaptation: ItineraryAdaptation;
+};
+
+export type TrafficAdaptResponse =
+  | TrafficAdaptResponseNoDecision
+  | TrafficAdaptResponseDecision;
 
 export type ItineraryPlan = {
   itinerary: GeneratedItinerary;

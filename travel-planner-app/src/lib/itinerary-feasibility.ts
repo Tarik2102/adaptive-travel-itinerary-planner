@@ -6,6 +6,7 @@ import {
   getRoute,
   type Coordinates,
 } from "@/lib/routing";
+import { optimizeCandidateOrder } from "@/lib/stop-order-optimizer";
 import type { Attraction } from "@/types/attraction";
 import type {
   GeneratedItinerary,
@@ -344,11 +345,25 @@ export async function adaptItineraryFeasibility(
 ): Promise<FeasibilityAdaptationResult> {
   const availableDuration = getAvailableDurationMinutes(preferences);
   const routeAwareSelection = selectRouteAwareCandidates(preferences, candidates);
-  const remainingCandidates = routeAwareSelection.candidates.slice();
+  const startLocation = getPreferenceStartLocation(preferences);
+  const orderingOptions: RouteOrderingOptions = {
+    transportMode: preferences.transportMode,
+    ...(startLocation ? { startLocation } : {}),
+  };
+
+  // Post-selection proximity optimization: nearest-neighbor (all starts) + 2-opt.
+  // The route-aware selector picks good candidates but its greedy path can leave
+  // nearby stops non-consecutive. This step globally minimizes total route distance
+  // on the already-selected set without changing which attractions are included.
+  let selectedCandidates = optimizeCandidateOrder(
+    routeAwareSelection.candidates,
+    orderingOptions
+  );
+
   const removedAttractions: RemovedAttraction[] = [];
   let itinerary = await buildScheduledItinerary(
     preferences,
-    remainingCandidates,
+    selectedCandidates,
     { preserveCandidateOrder: true }
   );
 
@@ -390,13 +405,13 @@ export async function adaptItineraryFeasibility(
 
   while (
     itinerary.totalDuration > availableDuration &&
-    remainingCandidates.length > 1
+    selectedCandidates.length > 1
   ) {
     const removalIndex = findLowestScoreCandidateIndex(
-      remainingCandidates,
+      selectedCandidates,
       preferences
     );
-    const removedCandidate = remainingCandidates.splice(removalIndex, 1)[0];
+    const removedCandidate = selectedCandidates[removalIndex];
 
     removedAttractions.push({
       id: removedCandidate.attraction.id,
@@ -404,7 +419,15 @@ export async function adaptItineraryFeasibility(
       reason: REMOVAL_REASON,
     });
 
-    itinerary = await buildScheduledItinerary(preferences, remainingCandidates, {
+    selectedCandidates = [
+      ...selectedCandidates.slice(0, removalIndex),
+      ...selectedCandidates.slice(removalIndex + 1),
+    ];
+
+    // Re-optimize after each removal: fewer stops may allow a tighter route.
+    selectedCandidates = optimizeCandidateOrder(selectedCandidates, orderingOptions);
+
+    itinerary = await buildScheduledItinerary(preferences, selectedCandidates, {
       preserveCandidateOrder: true,
     });
   }

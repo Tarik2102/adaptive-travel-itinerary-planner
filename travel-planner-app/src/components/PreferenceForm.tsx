@@ -21,6 +21,7 @@ import {
 
 type PreferenceFormProps = {
   onItineraryGenerated: (itineraryPlan: ItineraryPlan | null) => void;
+  onPreferencesChanged?: (preferences: PlannerPreferences) => void;
 };
 
 const interestValidationMessage =
@@ -49,7 +50,10 @@ function timeToMinutes(value: string): number {
   return hour * 60 + minute;
 }
 
-export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
+export function PreferenceForm({
+  onItineraryGenerated,
+  onPreferencesChanged,
+}: PreferenceFormProps) {
   const [interests, setInterests] = useState<TravelInterest[]>([]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
@@ -244,6 +248,10 @@ export function PreferenceForm({ onItineraryGenerated }: PreferenceFormProps) {
     },
     [onItineraryGenerated]
   );
+
+  useEffect(() => {
+    onPreferencesChanged?.(preferences);
+  }, [preferences, onPreferencesChanged]);
 
   useEffect(() => {
     if (!hasGeneratedItinerary || interests.length === 0) {

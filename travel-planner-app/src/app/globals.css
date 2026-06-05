@@ -1135,6 +1135,226 @@ code {
   background: var(--danger-soft);
 }
 
+/* ── Traffic simulation panel ─────────────────────────── */
+
+.traffic-panel {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 22px rgba(16, 33, 43, 0.06);
+  overflow: hidden;
+}
+
+.traffic-panel-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  padding: 12px 16px;
+  color: var(--foreground);
+  background: transparent;
+  font-weight: 700;
+  text-align: left;
+  transition: background-color 180ms ease;
+}
+
+.traffic-panel-toggle:hover {
+  background: var(--primary-soft);
+}
+
+.traffic-panel-toggle-label {
+  font-size: 0.92rem;
+}
+
+.traffic-panel-toggle-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--primary-strong);
+  background: var(--surface);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.traffic-panel-body {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid var(--line);
+  padding: 16px;
+}
+
+.traffic-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.traffic-severity-hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.traffic-severity-hint-blocked {
+  color: var(--danger);
+}
+
+.traffic-simulate-btn {
+  width: 100%;
+}
+
+.traffic-notification {
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.traffic-notification-blocked {
+  border: 1px solid rgba(180, 35, 24, 0.28);
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.traffic-notification-info {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--primary-soft);
+}
+
+.traffic-panel-disabled {
+  display: flex;
+  align-items: center;
+}
+
+.traffic-panel-disabled-note {
+  padding: 14px 16px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.adaptation-traffic-detail {
+  border-top-color: rgba(184, 117, 24, 0.28);
+}
+
+/* ── Traffic decision modal ──────────────────────────── */
+
+.traffic-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(6, 28, 43, 0.52);
+  backdrop-filter: blur(4px);
+}
+
+.traffic-modal {
+  display: grid;
+  gap: 0;
+  width: min(100%, 480px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-hover);
+  overflow: hidden;
+}
+
+.traffic-modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.traffic-modal-header h3 {
+  margin-top: 6px;
+  font-size: 1.15rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.traffic-modal-body {
+  display: grid;
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.traffic-modal-body p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.traffic-modal-body p strong {
+  color: var(--foreground);
+}
+
+.traffic-modal-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.traffic-modal-option {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.traffic-modal-option-proposed {
+  border-color: rgba(15, 143, 113, 0.38);
+  background: var(--emerald-soft);
+}
+
+.traffic-modal-option-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.traffic-modal-option-value {
+  color: var(--foreground);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.traffic-modal-option-stops {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.traffic-modal-reasons {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.traffic-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--line);
+}
+
 .state-panel-error h3 {
   color: var(--danger);
 }
