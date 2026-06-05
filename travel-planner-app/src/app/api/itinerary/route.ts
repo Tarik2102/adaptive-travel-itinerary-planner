@@ -150,6 +150,7 @@ export async function POST(request: Request) {
   }
 
   const preferences: PlannerPreferences = parsedRequest.data.preferences;
+  logItineraryRequest(preferences);
 
   try {
     const attractions = await fetchAttractions();
@@ -198,6 +199,7 @@ export async function POST(request: Request) {
       preferences.transportMode
     );
     const routing = toItineraryRoutingMetadata(route);
+    logItineraryResponseSelection(preferences, feasibilityAdaptation.itinerary);
 
     return NextResponse.json({
       success: true,
@@ -465,6 +467,29 @@ function createEmptyItinerary(): GeneratedItinerary {
     totalDuration: 0,
     feasibilityStatus: "infeasible",
   };
+}
+
+function logItineraryRequest(preferences: PlannerPreferences): void {
+  console.log("/api/itinerary request:", {
+    maxStops: preferences.maxAttractions,
+    selectedInterests: preferences.interests,
+    transportMode: preferences.transportMode,
+  });
+}
+
+function logItineraryResponseSelection(
+  preferences: PlannerPreferences,
+  itinerary: GeneratedItinerary
+): void {
+  console.log("/api/itinerary selected attractions:", {
+    finalAttractions: itinerary.items.map((item) => item.attraction.name),
+    finalPrimaryCategories: itinerary.items.map(
+      (item) => item.attraction.primary_category ?? item.attraction.category
+    ),
+    maxStops: preferences.maxAttractions,
+    selectedInterests: preferences.interests,
+    transportMode: preferences.transportMode,
+  });
 }
 
 async function fetchItineraryRoute(
