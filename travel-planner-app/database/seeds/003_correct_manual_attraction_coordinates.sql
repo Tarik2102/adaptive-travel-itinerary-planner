@@ -234,8 +234,8 @@ WITH reference AS (
 ),
 coordinate AS (
   SELECT
-    COALESCE((SELECT latitude FROM reference), 43.8597194) AS latitude,
-    COALESCE((SELECT longitude FROM reference), 18.4312611) AS longitude
+    COALESCE((SELECT latitude FROM reference), 43.867889) AS latitude,
+    COALESCE((SELECT longitude FROM reference), 18.433127) AS longitude
 )
 UPDATE attractions AS manual
 SET

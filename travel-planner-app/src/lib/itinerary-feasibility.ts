@@ -41,9 +41,36 @@ type RouteAwareScoredCandidate = OrderedCandidate & {
   visitDuration: number;
 };
 
+type LogicalSelectionContext = {
+  coveredInterestCounts: Map<string, number>;
+  foodCafeStopLimit: number;
+  foodCafeStopsSelected: number;
+  hasMultipleSelectedInterests: boolean;
+  onlyFoodCafeSelected: boolean;
+  previousSelectedWasFoodCafe: boolean;
+  primaryCategoryCounts: Map<string, number>;
+  selectedInterests: string[];
+  slotInterest: string | null;
+  transportMode: TransportMode;
+};
+
 type RouteAwareSelectionDiagnostics = {
+  fallbackSlots: string[];
+  foodCafeSlotSelections: string[];
   penalizedLongLegs: string[];
+  skippedConsecutiveFoodStops: string[];
   skippedLongWalkingLegs: string[];
+  slotPlan: string[];
+};
+
+type LogicalCandidatePool = {
+  candidates: RouteAwareScoredCandidate[];
+  foodCafeSlotDiagnostics?: {
+    slotInterest: string;
+    strictCandidateCount: number;
+    usedBroadFoodFallback: boolean;
+  };
+  usedFallback: boolean;
 };
 
 type RouteAwareSelectionResult = {
@@ -58,6 +85,10 @@ type FeasibilityAdaptationResult = {
   adaptation: ItineraryAdaptation;
 };
 
+type ScheduleOptions = {
+  preserveCandidateOrder?: boolean;
+};
+
 const REMOVAL_REASON =
   "Removed lowest-score attraction to keep itinerary feasible.";
 const WALKING_SOFT_LEG_LIMIT_MIN = 30;
@@ -65,6 +96,247 @@ const WALKING_HARD_LEG_LIMIT_MIN = 45;
 const DRIVING_SOFT_LEG_LIMIT_MIN = 35;
 const DRIVING_HARD_LEG_LIMIT_MIN = 60;
 const ROUTE_AWARE_LOG_LIMIT = 8;
+
+const FOOD_CAFE_LABELS = new Set([
+  "bar",
+  "bakery",
+  "cafe",
+  "coffee",
+  "cuisine",
+  "fast_food",
+  "food",
+  "local_food",
+  "pub",
+  "restaurant",
+  "traditional_bosnian_food",
+]);
+
+const STRICT_FOOD_CAFE_CATEGORY_LABELS = new Set([
+  "bakery",
+  "cafe",
+  "fast_food",
+  "food",
+  "restaurant",
+]);
+
+const STRICT_FOOD_CAFE_SECONDARY_LABELS = new Set([
+  "traditional_bosnian_food",
+]);
+
+const STRICT_FOOD_CAFE_TAG_LABELS = new Set([
+  "bakery",
+  "burek",
+  "cafe",
+  "cevapi",
+  "coffee",
+  "cuisine",
+  "fast_food",
+  "restaurant",
+  "traditional_bosnian_food",
+]);
+
+const FOOD_CAFE_SEARCH_TERMS = [
+  "bakery",
+  "bosnian food",
+  "burek",
+  "cafe",
+  "cevapi",
+  "coffee",
+  "cuisine",
+  "fast food",
+  "food",
+  "local food",
+  "pastry",
+  "restaurant",
+  "traditional bosnian food",
+];
+
+const FOOD_CAFE_INTEREST_LABELS = new Set([
+  "cafe",
+  "food",
+  "traditional_bosnian_food",
+]);
+
+const INTEREST_ALIASES: Record<string, string[]> = {
+  architecture: [
+    "architecture",
+    "architectural",
+    "austro hungarian",
+    "building",
+    "bridge",
+    "city hall",
+    "facade",
+    "landmark",
+    "monument",
+  ],
+  austro_hungarian_heritage: [
+    "architecture",
+    "austro hungarian",
+    "austrian",
+    "facade",
+    "historic",
+    "hungarian",
+    "landmark",
+  ],
+  cafe: [
+    "bakery",
+    "cafe",
+    "coffee",
+    "dessert",
+    "local food",
+    "pastry",
+    "restaurant",
+    "tea",
+  ],
+  cinema: ["cinema", "film", "movie"],
+  culture: [
+    "arts centre",
+    "cultural",
+    "culture",
+    "gallery",
+    "heritage",
+    "museum",
+    "performance",
+    "traditional",
+  ],
+  entertainment: [
+    "arts centre",
+    "cinema",
+    "entertainment",
+    "nightlife",
+    "performance",
+    "theatre",
+  ],
+  family: [
+    "children",
+    "family",
+    "kids",
+    "park",
+    "playground",
+    "recreation",
+    "zoo",
+  ],
+  food: [
+    "bosnian cuisine",
+    "bosnian food",
+    "cafe",
+    "cuisine",
+    "fast food",
+    "food",
+    "local food",
+    "restaurant",
+    "traditional bosnian food",
+  ],
+  history: [
+    "austro hungarian",
+    "heritage",
+    "historic",
+    "history",
+    "memorial",
+    "monument",
+    "old town",
+    "ottoman",
+    "siege",
+    "war",
+  ],
+  local_experience: [
+    "bazaar",
+    "cafe",
+    "food",
+    "local",
+    "local market",
+    "market",
+    "marketplace",
+    "souvenir",
+    "traditional",
+  ],
+  modern_sarajevo: [
+    "contemporary",
+    "entertainment",
+    "mall",
+    "modern",
+    "shopping",
+    "urban",
+  ],
+  museum: ["collection", "education", "exhibition", "gallery", "museum"],
+  nature: [
+    "garden",
+    "green space",
+    "hiking",
+    "mountain",
+    "nature",
+    "outdoor",
+    "park",
+    "river",
+    "viewpoint",
+    "walking",
+  ],
+  ottoman_heritage: [
+    "bazaar",
+    "heritage",
+    "islamic",
+    "mosque",
+    "old town",
+    "ottoman",
+  ],
+  park: ["garden", "green space", "outdoor", "park", "recreation"],
+  religion: [
+    "cathedral",
+    "church",
+    "islamic",
+    "jewish",
+    "mosque",
+    "orthodox",
+    "place of worship",
+    "religion",
+    "religious",
+    "synagogue",
+    "worship",
+  ],
+  shopping: [
+    "bazaar",
+    "local market",
+    "mall",
+    "market",
+    "marketplace",
+    "retail",
+    "shop",
+    "shopping",
+    "souvenir",
+  ],
+  sport: [
+    "fitness",
+    "hiking",
+    "recreation",
+    "sport",
+    "sports",
+    "stadium",
+    "swimming",
+    "walking",
+  ],
+  theatre: ["performance", "stage", "theater", "theatre"],
+  traditional_bosnian_food: [
+    "bosnian cuisine",
+    "bosnian food",
+    "burek",
+    "cevapi",
+    "cuisine",
+    "local food",
+    "restaurant",
+    "traditional bosnian food",
+  ],
+  viewpoint: ["lookout", "panorama", "scenic", "viewpoint"],
+  war_history: [
+    "battle",
+    "conflict",
+    "defense",
+    "memorial",
+    "siege",
+    "tunnel",
+    "war",
+    "war history",
+  ],
+};
 
 export async function adaptItineraryFeasibility(
   preferences: PlannerPreferences,
@@ -76,7 +348,8 @@ export async function adaptItineraryFeasibility(
   const removedAttractions: RemovedAttraction[] = [];
   let itinerary = await buildScheduledItinerary(
     preferences,
-    remainingCandidates
+    remainingCandidates,
+    { preserveCandidateOrder: true }
   );
 
   if (itinerary.items.length === 0) {
@@ -119,7 +392,10 @@ export async function adaptItineraryFeasibility(
     itinerary.totalDuration > availableDuration &&
     remainingCandidates.length > 1
   ) {
-    const removalIndex = findLowestScoreCandidateIndex(remainingCandidates);
+    const removalIndex = findLowestScoreCandidateIndex(
+      remainingCandidates,
+      preferences
+    );
     const removedCandidate = remainingCandidates.splice(removalIndex, 1)[0];
 
     removedAttractions.push({
@@ -128,7 +404,9 @@ export async function adaptItineraryFeasibility(
       reason: REMOVAL_REASON,
     });
 
-    itinerary = await buildScheduledItinerary(preferences, remainingCandidates);
+    itinerary = await buildScheduledItinerary(preferences, remainingCandidates, {
+      preserveCandidateOrder: true,
+    });
   }
 
   const adjustedSuccessfully =
@@ -157,21 +435,24 @@ export async function adaptItineraryFeasibility(
 
 export async function buildScheduledItinerary(
   preferences: PlannerPreferences,
-  candidates: ItineraryCandidate[]
+  candidates: ItineraryCandidate[],
+  options: ScheduleOptions = {}
 ): Promise<GeneratedItinerary> {
   const startMinutes = timeToMinutes(preferences.startTime);
   const availableDuration = getAvailableDurationMinutes(preferences);
   const selectedCandidates = candidates.slice(0, preferences.maxAttractions);
   const startLocation = getPreferenceStartLocation(preferences);
   const travelTimeCache: TravelTimeCache = new Map();
-  const orderedCandidates = await orderStopsByNearestNeighborWithCache(
-    selectedCandidates,
-    {
-      transportMode: preferences.transportMode,
-      ...(startLocation ? { startLocation } : {}),
-    },
-    travelTimeCache
-  );
+  const orderedCandidates = options.preserveCandidateOrder
+    ? selectedCandidates
+    : await orderStopsByNearestNeighborWithCache(
+        selectedCandidates,
+        {
+          transportMode: preferences.transportMode,
+          ...(startLocation ? { startLocation } : {}),
+        },
+        travelTimeCache
+      );
   const items: GeneratedItinerary["items"] = [];
   let totalVisitTime = 0;
   let totalTravelTime = 0;
@@ -253,6 +534,20 @@ function selectRouteAwareCandidates(
   preferences: PlannerPreferences,
   candidates: ItineraryCandidate[]
 ): RouteAwareSelectionResult {
+  const selectedInterests = getUniqueInterests(preferences.interests);
+  const slotPlan = buildInterestSlotPlan(
+    selectedInterests,
+    preferences.maxAttractions,
+    preferences.startTime,
+    preferences.endTime
+  );
+  const onlyFoodCafeSelected =
+    selectedInterests.length > 0 && selectedInterests.every(isFoodCafeInterest);
+  const hasMultipleSelectedInterests = selectedInterests.length > 1;
+  const foodCafeStopLimit = getFoodCafeStopLimit(
+    preferences,
+    onlyFoodCafeSelected
+  );
   const remainingCandidates: OrderedCandidate[] = candidates.map(
     (candidate, originalIndex) => ({
       candidate,
@@ -261,26 +556,50 @@ function selectRouteAwareCandidates(
   );
   const selectedCandidates: ItineraryCandidate[] = [];
   const diagnostics: RouteAwareSelectionDiagnostics = {
+    fallbackSlots: [],
+    foodCafeSlotSelections: [],
     penalizedLongLegs: [],
+    skippedConsecutiveFoodStops: [],
     skippedLongWalkingLegs: [],
+    slotPlan,
   };
   const availableDuration = getAvailableDurationMinutes(preferences);
   let currentLocation = getRouteAwareStartLocation(preferences);
   let currentStopName = getRouteAwareStartName(preferences);
   let hasPreviousSelectedStop = hasValidPreferenceStartLocation(preferences);
   let selectedDuration = 0;
+  let foodCafeStopsSelected = 0;
+  let previousSelectedWasFoodCafe = false;
+  const coveredInterestCounts = new Map<string, number>();
+  const primaryCategoryCounts = new Map<string, number>();
 
   while (
     selectedCandidates.length < preferences.maxAttractions &&
     remainingCandidates.length > 0
   ) {
+    const slotInterest =
+      slotPlan[selectedCandidates.length] ??
+      getFallbackSlotInterest(selectedInterests, selectedCandidates.length);
+    const logicalContext: LogicalSelectionContext = {
+      coveredInterestCounts,
+      foodCafeStopLimit,
+      foodCafeStopsSelected,
+      hasMultipleSelectedInterests,
+      onlyFoodCafeSelected,
+      previousSelectedWasFoodCafe,
+      primaryCategoryCounts,
+      selectedInterests,
+      slotInterest,
+      transportMode: preferences.transportMode,
+    };
     const scoredCandidates = scoreRouteAwareCandidates(
       remainingCandidates,
       currentLocation,
       preferences,
       availableDuration,
       selectedDuration,
-      hasPreviousSelectedStop
+      hasPreviousSelectedStop,
+      logicalContext
     );
     const windowFeasibleCandidates = scoredCandidates.some(
       (candidate) => candidate.fitsWindow
@@ -293,8 +612,19 @@ function selectRouteAwareCandidates(
       diagnostics,
       currentStopName
     );
-    const bestCandidate = routeFeasibleCandidates.reduce(
+    const logicalCandidatePool = getLogicalCandidatePool(
+      routeFeasibleCandidates,
+      logicalContext,
+      diagnostics,
+      currentStopName
+    );
+    const bestCandidate = logicalCandidatePool.candidates.reduce(
       findBetterRouteAwareCandidate
+    );
+    const selectedCandidate = withLogicalSelectionReason(
+      bestCandidate,
+      logicalContext,
+      logicalCandidatePool
     );
 
     if (bestCandidate.exceedsSoftLimit) {
@@ -309,12 +639,40 @@ function selectRouteAwareCandidates(
       );
     }
 
-    selectedCandidates.push(bestCandidate.candidate);
+    if (logicalCandidatePool.usedFallback && slotInterest) {
+      recordDiagnostic(
+        diagnostics.fallbackSlots,
+        `${slotInterest} -> ${bestCandidate.candidate.attraction.name}`
+      );
+    }
+
+    recordFoodCafeSlotSelectionDiagnostic(
+      diagnostics,
+      logicalCandidatePool,
+      bestCandidate
+    );
+
+    selectedCandidates.push(selectedCandidate);
     selectedDuration +=
       bestCandidate.travelContributionMinutes + bestCandidate.visitDuration;
     currentLocation = getAttractionCoordinates(bestCandidate.candidate.attraction);
     currentStopName = bestCandidate.candidate.attraction.name;
     hasPreviousSelectedStop = true;
+    previousSelectedWasFoodCafe = isFoodCafeCandidate(
+      bestCandidate.candidate.attraction
+    );
+    if (previousSelectedWasFoodCafe) {
+      foodCafeStopsSelected += 1;
+    }
+    updateCoveredInterestCounts(
+      coveredInterestCounts,
+      selectedInterests,
+      bestCandidate.candidate.attraction
+    );
+    incrementCount(
+      primaryCategoryCounts,
+      getPrimaryCategoryKey(bestCandidate.candidate.attraction)
+    );
     remainingCandidates.splice(
       remainingCandidates.findIndex(
         (candidate) => candidate.originalIndex === bestCandidate.originalIndex
@@ -335,7 +693,8 @@ function scoreRouteAwareCandidates(
   preferences: PlannerPreferences,
   availableDuration: number,
   selectedDuration: number,
-  hasPreviousSelectedStop: boolean
+  hasPreviousSelectedStop: boolean,
+  logicalContext: LogicalSelectionContext
 ): RouteAwareScoredCandidate[] {
   return candidates.map((candidate) => {
     const travelMinutes = estimateTravelTimeMinutes(
@@ -360,6 +719,10 @@ function scoreRouteAwareCandidates(
       availableDuration;
     const windowPenalty = fitsWindow ? 0 : 0.45;
     const baseScore = getCandidateSelectionBaseScore(candidate.candidate);
+    const logicalAdjustment = getLogicalSelectionScoreAdjustment(
+      candidate.candidate,
+      logicalContext
+    );
 
     return {
       ...candidate,
@@ -367,12 +730,303 @@ function scoreRouteAwareCandidates(
       exceedsHardLimit: routeAssessment.exceedsHardLimit,
       exceedsSoftLimit: routeAssessment.exceedsSoftLimit,
       fitsWindow,
-      selectionScore: baseScore - routeAssessment.penalty - windowPenalty,
+      selectionScore:
+        baseScore + logicalAdjustment - routeAssessment.penalty - windowPenalty,
       travelContributionMinutes,
       travelMinutes,
       visitDuration,
     };
   });
+}
+
+function getLogicalSelectionScoreAdjustment(
+  candidate: ItineraryCandidate,
+  context: LogicalSelectionContext
+): number {
+  const attraction = candidate.attraction;
+  const slotMatchStrength = context.slotInterest
+    ? getInterestMatchStrength(attraction, context.slotInterest)
+    : 0;
+  const matchedSelectedInterests = getMatchedSelectedInterests(
+    attraction,
+    context.selectedInterests
+  );
+  const uncoveredMatches = matchedSelectedInterests.filter(
+    (interest) =>
+      (context.coveredInterestCounts.get(normalizeLabel(interest)) ?? 0) === 0
+  );
+  const primaryCategoryCount =
+    context.primaryCategoryCounts.get(getPrimaryCategoryKey(attraction)) ?? 0;
+  const isFoodCafe = isFoodCafeCandidate(attraction);
+  let adjustment = 0;
+
+  if (slotMatchStrength > 0) {
+    adjustment += 0.3 * slotMatchStrength;
+  }
+
+  if (matchedSelectedInterests.length > 0) {
+    adjustment += 0.06 + Math.min(0.08, matchedSelectedInterests.length * 0.02);
+  }
+
+  if (context.hasMultipleSelectedInterests && uncoveredMatches.length > 0) {
+    adjustment += 0.2 + Math.min(0.08, (uncoveredMatches.length - 1) * 0.04);
+  }
+
+  if (context.hasMultipleSelectedInterests && primaryCategoryCount > 0) {
+    adjustment -= Math.min(0.24, primaryCategoryCount * 0.08);
+  }
+
+  if (
+    !context.onlyFoodCafeSelected &&
+    isFoodCafe &&
+    hasSelectedFoodCafeInterest(context.selectedInterests)
+  ) {
+    if (context.foodCafeStopsSelected >= context.foodCafeStopLimit) {
+      adjustment -= 0.7;
+    }
+
+    if (context.previousSelectedWasFoodCafe) {
+      adjustment -= 0.5;
+    }
+  }
+
+  return adjustment;
+}
+
+function getLogicalCandidatePool(
+  candidates: RouteAwareScoredCandidate[],
+  context: LogicalSelectionContext,
+  diagnostics: RouteAwareSelectionDiagnostics,
+  currentStopName: string
+): LogicalCandidatePool {
+  const eligibleCandidates = getFoodEligibleCandidates(
+    candidates,
+    context,
+    diagnostics,
+    currentStopName
+  );
+  const isFoodCafeSlot =
+    context.slotInterest !== null && isFoodCafeInterest(context.slotInterest);
+
+  if (isFoodCafeSlot && context.slotInterest) {
+    const strictFoodCafeCandidates = eligibleCandidates.filter((candidate) =>
+      isStrictFoodCafeCandidate(candidate.candidate.attraction)
+    );
+    const foodCafeSlotDiagnostics = {
+      slotInterest: context.slotInterest,
+      strictCandidateCount: strictFoodCafeCandidates.length,
+      usedBroadFoodFallback: false,
+    };
+
+    if (strictFoodCafeCandidates.length > 0) {
+      return {
+        candidates: strictFoodCafeCandidates,
+        foodCafeSlotDiagnostics,
+        usedFallback: false,
+      };
+    }
+
+    const broadFoodCandidates = eligibleCandidates.filter((candidate) =>
+      candidateMatchesInterest(candidate.candidate, context.slotInterest)
+    );
+
+    if (broadFoodCandidates.length > 0) {
+      return {
+        candidates: broadFoodCandidates,
+        foodCafeSlotDiagnostics: {
+          ...foodCafeSlotDiagnostics,
+          usedBroadFoodFallback: true,
+        },
+        usedFallback: true,
+      };
+    }
+  }
+
+  const slotCandidates = context.slotInterest
+    ? eligibleCandidates.filter((candidate) =>
+        candidateMatchesInterest(candidate.candidate, context.slotInterest)
+      )
+    : [];
+
+  if (slotCandidates.length > 0) {
+    return {
+      candidates: slotCandidates,
+      usedFallback: false,
+    };
+  }
+
+  const selectedInterestCandidates = eligibleCandidates.filter((candidate) =>
+    candidateMatchesAnySelectedInterest(
+      candidate.candidate,
+      context.selectedInterests
+    )
+  );
+
+  if (selectedInterestCandidates.length > 0) {
+    return {
+      candidates: selectedInterestCandidates,
+      usedFallback: context.slotInterest !== null,
+    };
+  }
+
+  return {
+    candidates: eligibleCandidates.length > 0 ? eligibleCandidates : candidates,
+    usedFallback: context.slotInterest !== null,
+  };
+}
+
+function getFoodEligibleCandidates(
+  candidates: RouteAwareScoredCandidate[],
+  context: LogicalSelectionContext,
+  diagnostics: RouteAwareSelectionDiagnostics,
+  currentStopName: string
+): RouteAwareScoredCandidate[] {
+  if (context.onlyFoodCafeSelected) {
+    return candidates;
+  }
+
+  if (!hasSelectedFoodCafeInterest(context.selectedInterests)) {
+    return candidates;
+  }
+
+  let eligibleCandidates = candidates;
+
+  if (context.foodCafeStopsSelected >= context.foodCafeStopLimit) {
+    const nonFoodCafeCandidates = eligibleCandidates.filter(
+      (candidate) => !isFoodCafeCandidate(candidate.candidate.attraction)
+    );
+
+    if (nonFoodCafeCandidates.length > 0) {
+      eligibleCandidates = nonFoodCafeCandidates;
+    }
+  }
+
+  if (!context.previousSelectedWasFoodCafe) {
+    return eligibleCandidates;
+  }
+
+  const nonConsecutiveCandidates = eligibleCandidates.filter(
+    (candidate) => !isFoodCafeCandidate(candidate.candidate.attraction)
+  );
+
+  if (nonConsecutiveCandidates.length === 0) {
+    return eligibleCandidates;
+  }
+
+  eligibleCandidates
+    .filter((candidate) => isFoodCafeCandidate(candidate.candidate.attraction))
+    .forEach((candidate) => {
+      recordDiagnostic(
+        diagnostics.skippedConsecutiveFoodStops,
+        formatLegDiagnostic(
+          currentStopName,
+          candidate.candidate.attraction.name,
+          candidate.travelMinutes,
+          context.transportMode
+        )
+      );
+    });
+
+  return nonConsecutiveCandidates;
+}
+
+function withLogicalSelectionReason(
+  scoredCandidate: RouteAwareScoredCandidate,
+  context: LogicalSelectionContext,
+  logicalCandidatePool: LogicalCandidatePool
+): ItineraryCandidate {
+  const candidate = scoredCandidate.candidate;
+  const attraction = candidate.attraction;
+  const reasonSegments: string[] = [];
+  const isStrictFoodCafe = isStrictFoodCafeCandidate(attraction);
+  const hasFoodCafeRelevance = isFoodCafeCandidate(attraction);
+  const hasSelectedFoodCafe = hasSelectedFoodCafeInterest(
+    context.selectedInterests
+  );
+  const usedBroadFoodFallback =
+    logicalCandidatePool.foodCafeSlotDiagnostics?.usedBroadFoodFallback ?? false;
+  const matchesSlot =
+    context.slotInterest !== null &&
+    candidateMatchesInterest(candidate, context.slotInterest);
+  const uncoveredMatches = getMatchedSelectedInterests(
+    attraction,
+    context.selectedInterests
+  ).filter(
+    (interest) =>
+      (context.coveredInterestCounts.get(normalizeLabel(interest)) ?? 0) === 0
+  );
+
+  if (usedBroadFoodFallback && hasFoodCafeRelevance && !isStrictFoodCafe) {
+    reasonSegments.push(
+      "Selected as a food-related area because no nearby restaurant/cafe candidate was feasible"
+    );
+  } else if (isStrictFoodCafe && hasSelectedFoodCafe) {
+    reasonSegments.push(getStrictFoodCafeReason(attraction, context.slotInterest));
+  } else if (
+    hasSelectedFoodCafe &&
+    hasFoodCafeRelevance &&
+    !isStrictFoodCafe &&
+    matchesSlot
+  ) {
+    reasonSegments.push("Selected as a cultural stop with local food relevance");
+  } else if (matchesSlot && context.slotInterest) {
+    reasonSegments.push(
+      `Selected as a nearby ${formatInterestForReason(
+        context.slotInterest
+      )} stop`
+    );
+  } else if (logicalCandidatePool.usedFallback && context.slotInterest) {
+    reasonSegments.push(
+      `Selected as a feasible fallback for ${formatInterestForReason(
+        context.slotInterest
+      )}`
+    );
+  }
+
+  if (context.hasMultipleSelectedInterests && uncoveredMatches.length > 0) {
+    reasonSegments.push("Selected to balance selected interests");
+  }
+
+  if (
+    context.transportMode === "walking" &&
+    !scoredCandidate.exceedsSoftLimit
+  ) {
+    reasonSegments.push("Selected as a compact walking stop");
+  }
+
+  return {
+    ...candidate,
+    rank: {
+      ...candidate.rank,
+      reason: mergeReasonSegments(reasonSegments, candidate.rank.reason),
+    },
+  };
+}
+
+function recordFoodCafeSlotSelectionDiagnostic(
+  diagnostics: RouteAwareSelectionDiagnostics,
+  logicalCandidatePool: LogicalCandidatePool,
+  selectedCandidate: RouteAwareScoredCandidate
+): void {
+  const foodCafeSlotDiagnostics =
+    logicalCandidatePool.foodCafeSlotDiagnostics;
+
+  if (!foodCafeSlotDiagnostics) {
+    return;
+  }
+
+  recordDiagnostic(
+    diagnostics.foodCafeSlotSelections,
+    [
+      `slot=${foodCafeSlotDiagnostics.slotInterest}`,
+      `strictCandidates=${foodCafeSlotDiagnostics.strictCandidateCount}`,
+      `selected=${selectedCandidate.candidate.attraction.name}`,
+      `category=${getDisplayPrimaryCategory(
+        selectedCandidate.candidate.attraction
+      )}`,
+      `fallbackBroad=${foodCafeSlotDiagnostics.usedBroadFoodFallback}`,
+    ].join("; ")
+  );
 }
 
 function getRouteFeasibleCandidates(
@@ -455,6 +1109,478 @@ function getCandidateSelectionBaseScore(candidate: ItineraryCandidate): number {
     ratingScore * 0.04 +
     featuredBonus
   );
+}
+
+export function buildInterestSlotPlan(
+  interests: string[],
+  maxStops: number,
+  startTime: string,
+  endTime: string
+): string[] {
+  const selectedInterests = getUniqueInterests(interests);
+
+  if (maxStops <= 0 || selectedInterests.length === 0) {
+    return [];
+  }
+
+  const onlyFoodCafeSelected = selectedInterests.every(isFoodCafeInterest);
+
+  if (onlyFoodCafeSelected) {
+    return buildFoodOnlySlotPlan(selectedInterests, maxStops);
+  }
+
+  if (selectedInterests.length === 1) {
+    return Array.from({ length: maxStops }, () => selectedInterests[0]);
+  }
+
+  const foodCafeInterests = selectedInterests.filter(isFoodCafeInterest);
+  const nonFoodCafeInterests = selectedInterests.filter(
+    (interest) => !isFoodCafeInterest(interest)
+  );
+
+  if (foodCafeInterests.length === 0) {
+    return buildRoundRobinSlotPlan(selectedInterests, maxStops);
+  }
+
+  const foodCafeStopCount = getFoodCafeStopLimitForWindow(
+    maxStops,
+    startTime,
+    endTime
+  );
+  const foodSlotPositions = getFoodSlotPositions(
+    foodCafeStopCount,
+    maxStops,
+    startTime
+  );
+  const foodSlotInterests = buildFoodSlotInterests(
+    foodCafeInterests,
+    foodCafeStopCount
+  );
+  const baseInterests =
+    nonFoodCafeInterests.length > 0 ? nonFoodCafeInterests : selectedInterests;
+  const slotPlan: string[] = [];
+  let baseIndex = 0;
+  let foodIndex = 0;
+
+  for (let index = 0; index < maxStops; index += 1) {
+    if (foodSlotPositions.has(index)) {
+      slotPlan.push(foodSlotInterests[foodIndex] ?? foodCafeInterests[0]);
+      foodIndex += 1;
+    } else {
+      slotPlan.push(baseInterests[baseIndex % baseInterests.length]);
+      baseIndex += 1;
+    }
+  }
+
+  return slotPlan;
+}
+
+function buildFoodOnlySlotPlan(interests: string[], maxStops: number): string[] {
+  const normalizedInterestLabels = new Set(interests.map(normalizeLabel));
+  const foodCycle = [...interests];
+
+  if (!normalizedInterestLabels.has("food")) {
+    foodCycle.push("Food");
+  }
+
+  if (!normalizedInterestLabels.has("cafe")) {
+    foodCycle.push("Cafe");
+  }
+
+  return Array.from(
+    { length: maxStops },
+    (_, index) => foodCycle[index % foodCycle.length]
+  );
+}
+
+function buildRoundRobinSlotPlan(interests: string[], maxStops: number): string[] {
+  return Array.from(
+    { length: maxStops },
+    (_, index) => interests[index % interests.length]
+  );
+}
+
+function buildFoodSlotInterests(
+  foodCafeInterests: string[],
+  foodCafeStopCount: number
+): string[] {
+  return Array.from(
+    { length: foodCafeStopCount },
+    (_, index) => foodCafeInterests[index % foodCafeInterests.length]
+  );
+}
+
+function getFoodSlotPositions(
+  foodCafeStopCount: number,
+  maxStops: number,
+  startTime: string
+): Set<number> {
+  if (foodCafeStopCount <= 0 || maxStops <= 0) {
+    return new Set();
+  }
+
+  if (foodCafeStopCount === 1) {
+    return new Set([
+      timeToMinutes(startTime) < 10 * 60 + 30
+        ? 0
+        : Math.min(maxStops - 1, Math.max(1, Math.floor(maxStops / 2))),
+    ]);
+  }
+
+  return new Set([0, maxStops - 1]);
+}
+
+function getFoodCafeStopLimit(
+  preferences: PlannerPreferences,
+  onlyFoodCafeSelected: boolean
+): number {
+  if (onlyFoodCafeSelected) {
+    return preferences.maxAttractions;
+  }
+
+  if (!hasSelectedFoodCafeInterest(preferences.interests)) {
+    return 0;
+  }
+
+  return getFoodCafeStopLimitForWindow(
+    preferences.maxAttractions,
+    preferences.startTime,
+    preferences.endTime
+  );
+}
+
+function getFoodCafeStopLimitForWindow(
+  maxStops: number,
+  startTime: string,
+  endTime: string
+): number {
+  if (maxStops <= 0) {
+    return 0;
+  }
+
+  const availableDuration = timeToMinutes(endTime) - timeToMinutes(startTime);
+
+  if (availableDuration < 4 * 60) {
+    return 1;
+  }
+
+  if (availableDuration < 7 * 60) {
+    return maxStops >= 6 ? 2 : 1;
+  }
+
+  const mealOpportunities = getMealOpportunityCount(startTime, endTime);
+  const stopCapacity = maxStops >= 5 ? 2 : 1;
+
+  return Math.min(2, stopCapacity, Math.max(1, mealOpportunities));
+}
+
+function getMealOpportunityCount(startTime: string, endTime: string): number {
+  const startMinutes = timeToMinutes(startTime);
+  const endMinutes = timeToMinutes(endTime);
+  let opportunities = 0;
+
+  if (startMinutes < 10 * 60 + 30) {
+    opportunities += 1;
+  }
+
+  if (startMinutes < 14 * 60 + 30 && endMinutes > 12 * 60) {
+    opportunities += 1;
+  }
+
+  if (endMinutes >= 18 * 60) {
+    opportunities += 1;
+  }
+
+  return opportunities;
+}
+
+function getFallbackSlotInterest(
+  selectedInterests: string[],
+  selectedCount: number
+): string | null {
+  if (selectedInterests.length === 0) {
+    return null;
+  }
+
+  return selectedInterests[selectedCount % selectedInterests.length];
+}
+
+function getUniqueInterests(interests: string[]): string[] {
+  const uniqueInterests = new Map<string, string>();
+
+  for (const interest of interests) {
+    const trimmedInterest = interest.trim();
+
+    if (trimmedInterest.length === 0) {
+      continue;
+    }
+
+    const normalizedInterest = normalizeLabel(trimmedInterest);
+
+    if (!uniqueInterests.has(normalizedInterest)) {
+      uniqueInterests.set(normalizedInterest, trimmedInterest);
+    }
+  }
+
+  return [...uniqueInterests.values()];
+}
+
+function candidateMatchesInterest(
+  candidate: ItineraryCandidate,
+  interest: string | null
+): boolean {
+  return interest !== null && getInterestMatchStrength(candidate.attraction, interest) > 0;
+}
+
+function candidateMatchesAnySelectedInterest(
+  candidate: ItineraryCandidate,
+  selectedInterests: string[]
+): boolean {
+  return getMatchedSelectedInterests(candidate.attraction, selectedInterests).length > 0;
+}
+
+function getMatchedSelectedInterests(
+  attraction: Attraction,
+  selectedInterests: string[]
+): string[] {
+  return selectedInterests.filter(
+    (interest) => getInterestMatchStrength(attraction, interest) > 0
+  );
+}
+
+function getInterestMatchStrength(
+  attraction: Attraction,
+  interest: string
+): number {
+  const interestLabels = expandInterestLabels(interest);
+  const interestTerms = expandInterestTerms(interest);
+  const primaryLabels = labelsFromValues([
+    attraction.category,
+    attraction.primary_category,
+  ]);
+  const secondaryLabels = labelsFromValues(attraction.secondary_categories ?? []);
+  const tagLabels = labelsFromValues(attraction.tags ?? []);
+  const searchText = getAttractionSearchText(attraction);
+
+  if (hasSetOverlap(primaryLabels, interestLabels)) {
+    return 1;
+  }
+
+  if (hasSetOverlap(secondaryLabels, interestLabels)) {
+    return 0.9;
+  }
+
+  if (hasSetOverlap(tagLabels, interestLabels)) {
+    return 0.8;
+  }
+
+  if ([...interestTerms].some((term) => containsSearchTerm(searchText, term))) {
+    return 0.65;
+  }
+
+  return 0;
+}
+
+function isFoodCafeInterest(interest: string): boolean {
+  return FOOD_CAFE_INTEREST_LABELS.has(normalizeLabel(interest));
+}
+
+function hasSelectedFoodCafeInterest(interests: string[]): boolean {
+  return interests.some(isFoodCafeInterest);
+}
+
+function isFoodCafeCandidate(attraction: Attraction): boolean {
+  const labels = labelsFromValues(getAttractionMetadataValues(attraction));
+
+  if (hasSetOverlap(labels, FOOD_CAFE_LABELS)) {
+    return true;
+  }
+
+  const searchText = getAttractionSearchText(attraction);
+
+  return FOOD_CAFE_SEARCH_TERMS.some((term) =>
+    containsSearchTerm(searchText, normalizeSearchText(term))
+  );
+}
+
+function isStrictFoodCafeCandidate(attraction: Attraction): boolean {
+  const primaryLabels = labelsFromValues([
+    attraction.category,
+    attraction.primary_category,
+  ]);
+
+  if (hasSetOverlap(primaryLabels, STRICT_FOOD_CAFE_CATEGORY_LABELS)) {
+    return true;
+  }
+
+  const secondaryLabels = labelsFromValues(attraction.secondary_categories ?? []);
+
+  if (hasSetOverlap(secondaryLabels, STRICT_FOOD_CAFE_SECONDARY_LABELS)) {
+    return true;
+  }
+
+  const tagLabels = labelsFromValues(attraction.tags ?? []);
+
+  return hasSetOverlap(tagLabels, STRICT_FOOD_CAFE_TAG_LABELS);
+}
+
+function getStrictFoodCafeReason(
+  attraction: Attraction,
+  slotInterest: string | null
+): string {
+  const labels = labelsFromValues([
+    attraction.category,
+    attraction.primary_category,
+    ...(attraction.tags ?? []),
+  ]);
+
+  if (
+    normalizeLabel(slotInterest) === "cafe" ||
+    labels.has("cafe") ||
+    labels.has("coffee") ||
+    labels.has("bakery")
+  ) {
+    return "Selected as a cafe stop";
+  }
+
+  return "Selected as a food stop";
+}
+
+function updateCoveredInterestCounts(
+  coveredInterestCounts: Map<string, number>,
+  selectedInterests: string[],
+  attraction: Attraction
+): void {
+  for (const interest of getMatchedSelectedInterests(attraction, selectedInterests)) {
+    incrementCount(coveredInterestCounts, normalizeLabel(interest));
+  }
+}
+
+function getPrimaryCategoryKey(attraction: Attraction): string {
+  return normalizeLabel(attraction.primary_category ?? attraction.category);
+}
+
+function getDisplayPrimaryCategory(attraction: Attraction): string {
+  return attraction.primary_category ?? attraction.category;
+}
+
+function incrementCount(counts: Map<string, number>, key: string): void {
+  counts.set(key, (counts.get(key) ?? 0) + 1);
+}
+
+function expandInterestTerms(interest: string): Set<string> {
+  const normalizedInterest = normalizeSearchText(interest);
+  const interestLabel = normalizeLabel(interest);
+  const terms = new Set<string>([
+    normalizedInterest,
+    interestLabel.replaceAll("_", " "),
+  ]);
+
+  for (const alias of INTEREST_ALIASES[interestLabel] ?? []) {
+    terms.add(normalizeSearchText(alias));
+  }
+
+  return new Set([...terms].filter((term) => term.length > 0));
+}
+
+function expandInterestLabels(interest: string): Set<string> {
+  return new Set([...expandInterestTerms(interest)].map(normalizeLabel));
+}
+
+function getAttractionMetadataValues(attraction: Attraction): string[] {
+  return [
+    attraction.category,
+    attraction.primary_category,
+    ...(attraction.secondary_categories ?? []),
+    ...(attraction.tags ?? []),
+  ].flatMap((value) => (value ? [value] : []));
+}
+
+function getAttractionSearchText(attraction: Attraction): string {
+  return [
+    attraction.category,
+    attraction.primary_category,
+    ...(attraction.secondary_categories ?? []),
+    ...(attraction.tags ?? []),
+    attraction.description,
+  ]
+    .flatMap((value) => (value ? [normalizeSearchText(value)] : []))
+    .join(" ");
+}
+
+function labelsFromValues(values: Array<string | null | undefined>): Set<string> {
+  return new Set(
+    values
+      .flatMap((value) => (value ? [normalizeLabel(value)] : []))
+      .filter((value) => value.length > 0)
+  );
+}
+
+function hasSetOverlap<T>(left: Set<T>, right: Set<T>): boolean {
+  for (const value of left) {
+    if (right.has(value)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function containsSearchTerm(searchText: string, term: string): boolean {
+  const normalizedTerm = normalizeSearchText(term);
+
+  if (normalizedTerm.length === 0) {
+    return false;
+  }
+
+  if (normalizedTerm.length <= 3) {
+    return ` ${searchText} `.includes(` ${normalizedTerm} `);
+  }
+
+  return searchText.includes(normalizedTerm);
+}
+
+function formatInterestForReason(interest: string): string {
+  return normalizeSearchText(interest);
+}
+
+function mergeReasonSegments(
+  logicalReasonSegments: string[],
+  existingReason: string
+): string {
+  const mergedSegments = [
+    ...logicalReasonSegments,
+    ...existingReason.split(";").map((segment) => segment.trim()),
+  ];
+  const uniqueSegments = new Map<string, string>();
+
+  for (const segment of mergedSegments) {
+    if (segment.length === 0) {
+      continue;
+    }
+
+    const key = normalizeSearchText(segment);
+
+    if (!uniqueSegments.has(key)) {
+      uniqueSegments.set(key, segment);
+    }
+  }
+
+  return [...uniqueSegments.values()].join("; ");
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeLabel(value: string | null | undefined): string {
+  return normalizeSearchText(value ?? "").replaceAll(" ", "_");
 }
 
 function getRoutePenaltyAssessment(
@@ -540,16 +1666,23 @@ function logRouteAwareSelection(
   itinerary: GeneratedItinerary,
   diagnostics: RouteAwareSelectionDiagnostics
 ): void {
-  console.log("Route-aware itinerary selection:", {
+  console.log("Logical route-aware itinerary selection:", {
     approximateTravelMinutesBetweenStops:
       getApproximateTravelMinutesBetweenStops(
         itinerary.items.map((item) => item.attraction),
         preferences.transportMode
       ),
+    fallbackSlots: diagnostics.fallbackSlots,
+    foodCafeSlotSelections: diagnostics.foodCafeSlotSelections,
     interests: preferences.interests,
     penalizedLongLegs: diagnostics.penalizedLongLegs,
     selectedAttractions: itinerary.items.map((item) => item.attraction.name),
+    selectedPrimaryCategories: itinerary.items.map(
+      (item) => getDisplayPrimaryCategory(item.attraction)
+    ),
+    skippedConsecutiveFoodStops: diagnostics.skippedConsecutiveFoodStops,
     skippedLongWalkingLegs: diagnostics.skippedLongWalkingLegs,
+    slotPlan: diagnostics.slotPlan,
     transportMode: preferences.transportMode,
   });
 }
@@ -724,23 +1857,83 @@ function isCloserOrderedCandidate(
   return candidate.originalIndex < nearest.originalIndex;
 }
 
-function findLowestScoreCandidateIndex(candidates: ItineraryCandidate[]): number {
+function findLowestScoreCandidateIndex(
+  candidates: ItineraryCandidate[],
+  preferences: PlannerPreferences
+): number {
+  const coverageCounts = getSelectedInterestCoverageCounts(
+    candidates,
+    getUniqueInterests(preferences.interests)
+  );
+
   return candidates.reduce((lowestIndex, candidate, index) => {
     const lowestCandidate = candidates[lowestIndex];
+    const removalScore = getCandidateRemovalScore(
+      candidate,
+      preferences,
+      coverageCounts
+    );
+    const lowestRemovalScore = getCandidateRemovalScore(
+      lowestCandidate,
+      preferences,
+      coverageCounts
+    );
 
-    if (candidate.rank.score < lowestCandidate.rank.score) {
+    if (removalScore < lowestRemovalScore) {
       return index;
     }
 
-    if (
-      candidate.rank.score === lowestCandidate.rank.score &&
-      index > lowestIndex
-    ) {
+    if (removalScore === lowestRemovalScore && index > lowestIndex) {
       return index;
     }
 
     return lowestIndex;
   }, 0);
+}
+
+function getSelectedInterestCoverageCounts(
+  candidates: ItineraryCandidate[],
+  selectedInterests: string[]
+): Map<string, number> {
+  const coverageCounts = new Map<string, number>();
+
+  for (const candidate of candidates) {
+    updateCoveredInterestCounts(
+      coverageCounts,
+      selectedInterests,
+      candidate.attraction
+    );
+  }
+
+  return coverageCounts;
+}
+
+function getCandidateRemovalScore(
+  candidate: ItineraryCandidate,
+  preferences: PlannerPreferences,
+  coverageCounts: Map<string, number>
+): number {
+  const selectedInterests = getUniqueInterests(preferences.interests);
+  const protectsMultipleInterestCoverage = selectedInterests.length > 1;
+  const matchedInterests = getMatchedSelectedInterests(
+    candidate.attraction,
+    selectedInterests
+  );
+  const uniquelyCoveredInterests = matchedInterests.filter(
+    (interest) => (coverageCounts.get(normalizeLabel(interest)) ?? 0) === 1
+  );
+  const foodCafeProtection =
+    !selectedInterests.every(isFoodCafeInterest) &&
+    hasSelectedFoodCafeInterest(selectedInterests) &&
+    isFoodCafeCandidate(candidate.attraction)
+      ? 0.1
+      : 0;
+  const coverageProtection =
+    protectsMultipleInterestCoverage && uniquelyCoveredInterests.length > 0
+      ? 0.16
+      : 0;
+
+  return candidate.rank.score + foodCafeProtection + coverageProtection;
 }
 
 async function calculateTravelTimeMinutes(
