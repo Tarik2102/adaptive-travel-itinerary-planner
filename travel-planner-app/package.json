@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "import:pois": "tsx scripts/import-sarajevo-pois.ts",
-    "clean:pois": "tsx scripts/clean-sarajevo-pois.ts"
+    "clean:pois": "tsx scripts/clean-sarajevo-pois.ts",
+    "sync:manual-coordinates": "tsx scripts/sync-manual-attraction-coordinates.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
