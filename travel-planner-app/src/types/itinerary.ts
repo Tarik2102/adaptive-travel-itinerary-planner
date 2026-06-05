@@ -4,11 +4,13 @@ import type { RouteGeometry, RoutingMetadata } from "@/lib/routing";
 
 export type {
   Coordinate,
+  RouteLeg,
   RouteGeometry,
   RoutingFallbackReason,
   RoutingMetadata,
   RoutingProvider,
   RoutingResponse,
+  RoutingTransport,
 } from "@/lib/routing";
 
 export type FeasibilityStatus = "feasible" | "partial" | "infeasible";
@@ -30,6 +32,7 @@ export type ItineraryItem = {
   plannedStartTime: string;
   plannedEndTime: string;
   travelTimeFromPrevious: number;
+  legTransport?: "walking" | "driving";
 };
 
 export type GeneratedItinerary = {

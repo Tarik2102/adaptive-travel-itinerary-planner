@@ -316,7 +316,13 @@ export function ItineraryResult({
                 <dl className="itinerary-meta">
                   <div>
                     <dt>Travel from previous</dt>
-                    <dd>{item.travelTimeFromPrevious} min</dd>
+                    <dd>
+                      {item.travelTimeFromPrevious === 0
+                        ? "0 min"
+                        : item.legTransport
+                          ? `${item.legTransport === "walking" ? "Walk" : "Drive"} · ${item.travelTimeFromPrevious} min`
+                          : `${item.travelTimeFromPrevious} min`}
+                    </dd>
                   </div>
                   <div>
                     <dt>Planned time</dt>

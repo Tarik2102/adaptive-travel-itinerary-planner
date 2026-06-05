@@ -1,6 +1,5 @@
+import { buildMixedModeRoute } from "@/lib/mixed-mode-routing";
 import {
-  buildRoutingMetadata,
-  getRoute,
   type Coordinates,
   type RoutingMetadata,
 } from "@/lib/routing";
@@ -50,7 +49,18 @@ export async function adaptTrafficItinerary(
   }
 
   const affectedLegIndex = chooseAffectedTrafficLeg(items, simulation);
-  const originalLegMinutes = items[affectedLegIndex].travelTimeFromPrevious;
+  const affectedItem = items[affectedLegIndex];
+
+  if (affectedItem.legTransport === "walking") {
+    console.log("/api/itinerary/adapt-traffic: leg is walking — traffic simulation skipped", {
+      affectedLegIndex,
+      fromStop: affectedLegIndex > 0 ? items[affectedLegIndex - 1].attraction.name : "Starting point",
+      toStop: affectedItem.attraction.name,
+    });
+    return buildWalkingLegResponse(currentItinerary, simulation, affectedLegIndex, items);
+  }
+
+  const originalLegMinutes = affectedItem.travelTimeFromPrevious;
   const delayMinutes = getTrafficDelayMinutes(simulation, originalLegMinutes);
   const simulatedLegMinutes = originalLegMinutes + delayMinutes;
   const fromStop =
@@ -129,13 +139,25 @@ export function chooseAffectedTrafficLeg(
     return simulation.affectedLegIndex;
   }
 
+  // Auto-select the longest driving leg. Walking legs are not affected by traffic.
   let maxTime = -1;
   let maxIndex = 1;
 
   for (let i = 1; i < items.length; i++) {
+    if (items[i].legTransport === "walking") continue;
     if (items[i].travelTimeFromPrevious > maxTime) {
       maxTime = items[i].travelTimeFromPrevious;
       maxIndex = i;
+    }
+  }
+
+  // If no driving legs found, fall back to longest leg overall.
+  if (maxTime === -1) {
+    for (let i = 1; i < items.length; i++) {
+      if (items[i].travelTimeFromPrevious > maxTime) {
+        maxTime = items[i].travelTimeFromPrevious;
+        maxIndex = i;
+      }
     }
   }
 
@@ -388,45 +410,68 @@ async function buildAdaptedItineraryByRemoval(
   // Rebuild planned times using the new travel times.
   const newItems = recalculateSchedule(reordered);
 
-  const newTotalTravelTime = newItems.reduce(
+  const availableDuration =
+    timeToMinutes(preferences.endTime) - timeToMinutes(preferences.startTime);
+
+  const { routeGeometry, routing, legTransports, legDurationsMinutes } =
+    await recomputeRouteForItems(newItems, preferences.transport);
+
+  // Apply accurate per-leg durations and transport modes from the new route.
+  const firstStartMinutes =
+    timeToMinutes(newItems[0]?.plannedStartTime ?? "09:00") -
+    newItems[0].travelTimeFromPrevious;
+  let cursorMinutes = firstStartMinutes;
+  const finalItems = newItems.map((item, index) => {
+    const visitDuration =
+      timeToMinutes(item.plannedEndTime) - timeToMinutes(item.plannedStartTime);
+    if (index === 0) {
+      cursorMinutes = timeToMinutes(item.plannedStartTime) + visitDuration;
+      return item;
+    }
+    const travelTime = legDurationsMinutes[index - 1] ?? item.travelTimeFromPrevious;
+    const legTransport = legTransports[index - 1];
+    const plannedStart = cursorMinutes + travelTime;
+    const plannedEnd = plannedStart + visitDuration;
+    cursorMinutes = plannedEnd;
+    return {
+      ...item,
+      travelTimeFromPrevious: travelTime,
+      legTransport,
+      plannedStartTime: minutesToTime(plannedStart),
+      plannedEndTime: minutesToTime(plannedEnd),
+    };
+  });
+
+  const finalTravelTime = finalItems.reduce(
     (sum, item) => sum + item.travelTimeFromPrevious,
     0
   );
-  const newTotalVisitTime = newItems.reduce(
+  const finalVisitTime = finalItems.reduce(
     (sum, item) =>
-      sum +
-      (timeToMinutes(item.plannedEndTime) -
-        timeToMinutes(item.plannedStartTime)),
+      sum + timeToMinutes(item.plannedEndTime) - timeToMinutes(item.plannedStartTime),
     0
   );
-  const newTotalDuration = newTotalTravelTime + newTotalVisitTime;
-  const availableDuration =
-    timeToMinutes(preferences.endTime) - timeToMinutes(preferences.startTime);
-  const newFeasibilityStatus: FeasibilityStatus =
-    newItems.length === 0
+  const finalDuration = finalTravelTime + finalVisitTime;
+  const finalFeasibilityStatus: FeasibilityStatus =
+    finalItems.length === 0
       ? "infeasible"
-      : newTotalDuration <= availableDuration
+      : finalDuration <= availableDuration
         ? "feasible"
         : "partial";
-
-  const { routeGeometry, routing } = await recomputeRouteForItems(
-    newItems,
-    preferences.transport
-  );
 
   console.log("/api/itinerary/adapt-traffic recomputed route:", {
     newRoutePointCount: routeGeometry?.coordinates.length ?? 0,
     provider: routing?.provider ?? "none",
-    newTotalDuration,
+    newTotalDuration: finalDuration,
   });
 
   return {
     ...currentItinerary,
-    items: newItems,
-    totalVisitTime: newTotalVisitTime,
-    totalTravelTime: newTotalTravelTime,
-    totalDuration: newTotalDuration,
-    feasibilityStatus: newFeasibilityStatus,
+    items: finalItems,
+    totalVisitTime: finalVisitTime,
+    totalTravelTime: finalTravelTime,
+    totalDuration: finalDuration,
+    feasibilityStatus: finalFeasibilityStatus,
     routeGeometry,
     routing,
   };
@@ -435,7 +480,12 @@ async function buildAdaptedItineraryByRemoval(
 async function recomputeRouteForItems(
   items: ItineraryItem[],
   transport: string
-): Promise<{ routeGeometry: RouteGeometry | undefined; routing: RoutingMetadata | undefined }> {
+): Promise<{
+  routeGeometry: RouteGeometry | undefined;
+  routing: RoutingMetadata | undefined;
+  legTransports: Array<"walking" | "driving">;
+  legDurationsMinutes: number[];
+}> {
   const coordinates: Coordinates[] = items
     .map((item) => ({
       latitude: Number(item.attraction.latitude),
@@ -453,24 +503,23 @@ async function recomputeRouteForItems(
     );
 
   if (coordinates.length < 2) {
-    return { routeGeometry: undefined, routing: undefined };
+    return { routeGeometry: undefined, routing: undefined, legTransports: [], legDurationsMinutes: [] };
   }
 
   try {
-    const route = await getRoute(coordinates, {
-      includeGeometry: true,
-      transport: transport === "driving" ? "driving" : "walking",
-    });
-    const routing = buildRoutingMetadata(route);
+    const preferredTransport = transport === "driving" ? "driving" : "walking";
+    const result = await buildMixedModeRoute(coordinates, preferredTransport);
 
     return {
-      routeGeometry: route.routeGeometry,
-      routing,
+      routeGeometry: result.routeGeometry,
+      routing: result.routing,
+      legTransports: result.legTransports,
+      legDurationsMinutes: result.legDurationsMinutes,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
     console.warn("/api/itinerary/adapt-traffic route recompute failed:", message);
-    return { routeGeometry: undefined, routing: undefined };
+    return { routeGeometry: undefined, routing: undefined, legTransports: [], legDurationsMinutes: [] };
   }
 }
 
@@ -578,6 +627,43 @@ function buildWalkingResponse(
         affectedSegment: { from: "", to: "" },
         originalLegTravelTime: 0,
         simulatedLegTravelTime: 0,
+        addedDelayMinutes: 0,
+        status: "ignored",
+      },
+    },
+  };
+}
+
+function buildWalkingLegResponse(
+  currentItinerary: GeneratedItinerary,
+  simulation: TrafficSimulationRequest,
+  affectedLegIndex: number,
+  items: ItineraryItem[]
+): TrafficAdaptResponse {
+  const fromStop =
+    affectedLegIndex > 0
+      ? items[affectedLegIndex - 1].attraction.name
+      : "Starting point";
+  const toStop = items[affectedLegIndex].attraction.name;
+
+  return {
+    trafficDecisionRequired: false,
+    itinerary: currentItinerary,
+    adaptation: {
+      applied: false,
+      reasons: [
+        `Traffic simulation applies only to driving legs. The segment from ${fromStop} to ${toStop} is a walking segment and was not affected.`,
+      ],
+      feasibilityStatus: toAdaptFeasibilityStatus(
+        currentItinerary.feasibilityStatus
+      ),
+      trafficSimulation: {
+        enabled: true,
+        severity: simulation.severity,
+        affectedLegIndex,
+        affectedSegment: { from: fromStop, to: toStop },
+        originalLegTravelTime: items[affectedLegIndex].travelTimeFromPrevious,
+        simulatedLegTravelTime: items[affectedLegIndex].travelTimeFromPrevious,
         addedDelayMinutes: 0,
         status: "ignored",
       },

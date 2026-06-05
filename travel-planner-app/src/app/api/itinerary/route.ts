@@ -11,12 +11,10 @@ import {
   adaptItineraryFeasibility,
   type ItineraryCandidate,
 } from "@/lib/itinerary-feasibility";
+import { buildMixedModeRoute } from "@/lib/mixed-mode-routing";
 import {
-  buildRoutingMetadata,
-  getRoute,
   type Coordinates,
   type RoutingMetadata,
-  type RoutingResponse,
 } from "@/lib/routing";
 import { getCurrentWeather, type WeatherInfo } from "@/lib/weather";
 import { applyWeatherAdaptation } from "@/lib/weather-adaptation";
@@ -194,21 +192,15 @@ export async function POST(request: Request) {
       weatherAdaptation.adaptation,
       feasibilityAdaptation.adaptation
     );
-    const route = await fetchItineraryRoute(
+    const { itinerary: routedItinerary } = await applyMixedModeRoute(
       feasibilityAdaptation.itinerary,
-      preferences.transportMode
+      preferences
     );
-    const routing = toItineraryRoutingMetadata(route);
-    logItineraryResponseSelection(preferences, feasibilityAdaptation.itinerary);
+    logItineraryResponseSelection(preferences, routedItinerary);
 
     return NextResponse.json({
       success: true,
-      itinerary: {
-        ...feasibilityAdaptation.itinerary,
-        routeGeometry: route.routeGeometry,
-        routing,
-        transportMode: preferences.transportMode,
-      },
+      itinerary: routedItinerary,
       adaptation,
     });
   } catch (error) {
@@ -492,10 +484,10 @@ function logItineraryResponseSelection(
   });
 }
 
-async function fetchItineraryRoute(
+async function applyMixedModeRoute(
   itinerary: GeneratedItinerary,
-  transportMode: TransportMode
-): Promise<RoutingResponse> {
+  preferences: PlannerPreferences
+): Promise<{ itinerary: GeneratedItinerary }> {
   const coordinates = itinerary.items
     .map((item): Coordinates => ({
       latitude: toFiniteNumber(item.attraction.latitude, 0),
@@ -503,15 +495,76 @@ async function fetchItineraryRoute(
     }))
     .filter(isValidCoordinates);
 
-  return getRoute(coordinates, {
-    includeGeometry: true,
-    transport: transportMode,
+  if (coordinates.length < 2) {
+    return {
+      itinerary: {
+        ...itinerary,
+        routing: createInsufficientRoutingMetadata(preferences.transportMode),
+        transportMode: preferences.transportMode,
+      },
+    };
+  }
+
+  const { routeGeometry, routing: rawRouting, legTransports, legDurationsMinutes } =
+    await buildMixedModeRoute(coordinates, preferences.transportMode);
+
+  const routing = filterRoutingMetadata(rawRouting);
+
+  // Recalculate schedule using accurate per-leg durations and tag each item
+  // with its leg transport mode (the mode used to travel TO that stop).
+  const firstStartMinutes = timeToMinutes(itinerary.items[0]?.plannedStartTime ?? preferences.startTime);
+  let cursorMinutes = firstStartMinutes;
+  const updatedItems = itinerary.items.map((item, index) => {
+    const visitDuration =
+      timeToMinutes(item.plannedEndTime) - timeToMinutes(item.plannedStartTime);
+
+    if (index === 0) {
+      cursorMinutes = firstStartMinutes + visitDuration;
+      return item;
+    }
+
+    const travelTime = legDurationsMinutes[index - 1] ?? item.travelTimeFromPrevious;
+    const legTransport = legTransports[index - 1];
+    const plannedStart = cursorMinutes + travelTime;
+    const plannedEnd = plannedStart + visitDuration;
+    cursorMinutes = plannedEnd;
+
+    return {
+      ...item,
+      travelTimeFromPrevious: travelTime,
+      legTransport,
+      plannedStartTime: minutesToTime(plannedStart),
+      plannedEndTime: minutesToTime(plannedEnd),
+    };
   });
+
+  const newTotalTravel = updatedItems.reduce(
+    (sum, item) => sum + item.travelTimeFromPrevious,
+    0
+  );
+  const newTotalVisit = updatedItems.reduce(
+    (sum, item) =>
+      sum +
+      timeToMinutes(item.plannedEndTime) -
+      timeToMinutes(item.plannedStartTime),
+    0
+  );
+
+  const updatedItinerary: GeneratedItinerary = {
+    ...itinerary,
+    items: updatedItems,
+    totalTravelTime: newTotalTravel,
+    totalVisitTime: newTotalVisit,
+    totalDuration: newTotalTravel + newTotalVisit,
+    routeGeometry,
+    routing,
+    transportMode: preferences.transportMode,
+  };
+
+  return { itinerary: updatedItinerary };
 }
 
-function toItineraryRoutingMetadata(route: RoutingResponse): RoutingMetadata {
-  const routing = buildRoutingMetadata(route);
-
+function filterRoutingMetadata(routing: RoutingMetadata): RoutingMetadata {
   if (process.env.NODE_ENV === "development") {
     return routing;
   }
@@ -520,6 +573,8 @@ function toItineraryRoutingMetadata(route: RoutingResponse): RoutingMetadata {
     geometryPointCount: routing.geometryPointCount,
     provider: routing.provider,
     transport: routing.transport,
+    ...(routing.legs ? { legs: routing.legs } : {}),
+    ...(routing.hasMixedModes ? { hasMixedModes: true } : {}),
   };
 }
 
@@ -551,6 +606,14 @@ function isValidCoordinates(coordinates: Coordinates): boolean {
 function timeToMinutes(value: string): number {
   const [hour, minute] = value.split(":").map(Number);
   return hour * 60 + minute;
+}
+
+function minutesToTime(value: number): string {
+  const minutesInDay = 24 * 60;
+  const normalized = ((value % minutesInDay) + minutesInDay) % minutesInDay;
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function normalizeTextArray(value: string[] | string | null): string[] {

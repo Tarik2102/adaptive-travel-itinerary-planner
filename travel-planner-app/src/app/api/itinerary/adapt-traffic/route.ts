@@ -35,6 +35,7 @@ const itineraryItemSchema = z.object({
   plannedStartTime: z.string(),
   plannedEndTime: z.string(),
   travelTimeFromPrevious: z.number(),
+  legTransport: z.enum(["walking", "driving"]).optional(),
 });
 
 const generatedItinerarySchema = z
