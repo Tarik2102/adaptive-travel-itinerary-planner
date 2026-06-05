@@ -8,6 +8,12 @@ type ItineraryResultProps = {
   itinerary: GeneratedItinerary | null;
 };
 
+function buildMapKey(itinerary: GeneratedItinerary): string {
+  const stopIds = itinerary.items.map((item) => item.attraction.id).join("-");
+  const geoCount = itinerary.routeGeometry?.coordinates.length ?? 0;
+  return `${stopIds}:${geoCount}`;
+}
+
 function toTitleCase(value: string) {
   return value
     .split(/[\s_-]+/)
@@ -73,6 +79,20 @@ function getAdaptationStatusTone(
 }
 
 function getAdaptationTitle(adaptation: ItineraryAdaptation) {
+  const trafficSim = adaptation.trafficSimulation;
+
+  if (trafficSim?.status === "blocked_reoptimized") {
+    return "Route blocked — itinerary automatically updated";
+  }
+
+  if (trafficSim?.enabled && trafficSim.severity === "heavy") {
+    return "Simulated heavy traffic delay detected";
+  }
+
+  if (trafficSim?.enabled && trafficSim.severity === "moderate") {
+    return "Simulated moderate traffic delay applied";
+  }
+
   const hasWeatherAdjustment =
     (adaptation.affectedAttractions?.length ?? 0) > 0 ||
     (adaptation.replacedAttractions?.length ?? 0) > 0;
@@ -176,6 +196,38 @@ function AdaptationCard({
           </ul>
         </div>
       ) : null}
+
+      {adaptation.trafficSimulation?.enabled ? (
+        <div className="adaptation-detail-group adaptation-traffic-detail">
+          <strong>Traffic simulation details</strong>
+          <ul>
+            <li>
+              Severity:{" "}
+              {toTitleCase(adaptation.trafficSimulation.severity)}
+            </li>
+            {adaptation.trafficSimulation.affectedSegment.from ? (
+              <li>
+                Affected segment:{" "}
+                {adaptation.trafficSimulation.affectedSegment.from} →{" "}
+                {adaptation.trafficSimulation.affectedSegment.to}
+              </li>
+            ) : null}
+            {adaptation.trafficSimulation.addedDelayMinutes > 0 ? (
+              <li>
+                Added delay: {adaptation.trafficSimulation.addedDelayMinutes}{" "}
+                min (original {adaptation.trafficSimulation.originalLegTravelTime}{" "}
+                min → {adaptation.trafficSimulation.simulatedLegTravelTime} min)
+              </li>
+            ) : null}
+            <li>
+              Status:{" "}
+              {toTitleCase(
+                adaptation.trafficSimulation.status.replace(/_/g, " ")
+              )}
+            </li>
+          </ul>
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -229,6 +281,7 @@ export function ItineraryResult({
       ) : (
         <>
           <ItineraryMap
+            key={buildMapKey(itinerary)}
             items={itinerary.items}
             routeGeometry={itinerary.routeGeometry}
             routing={itinerary.routing}
