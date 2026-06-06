@@ -1,9 +1,11 @@
 import Image from "next/image";
 import type { Attraction } from "@/types/attraction";
 import { Badge } from "@/components/Badge";
+import { getDisplayDescription } from "@/lib/interestFilter";
 
 type AttractionCardProps = {
   attraction: Attraction;
+  onClick?: () => void;
 };
 
 function toTitleCase(value: string) {
@@ -19,47 +21,27 @@ function formatOptionalLabel(value: string | null) {
 }
 
 function formatPriceLevel(value: string | null) {
-  if (!value) {
-    return "Price N/A";
-  }
-
-  if (value.toLowerCase() === "free") {
-    return "Free";
-  }
-
+  if (!value) return "Price N/A";
+  if (value.toLowerCase() === "free") return "Free";
   return `${toTitleCase(value)} price`;
 }
 
 function formatTime(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
+  if (!value) return null;
   const [hour, minute] = value.split(":");
-
-  if (!hour || !minute) {
-    return value;
-  }
-
+  if (!hour || !minute) return value;
   return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
 }
 
 function formatHours(openingTime: string | null, closingTime: string | null) {
   const opening = formatTime(openingTime);
   const closing = formatTime(closingTime);
-
-  if (!opening || !closing) {
-    return "Hours unavailable";
-  }
-
+  if (!opening || !closing) return "Hours unavailable";
   return `${opening} - ${closing}`;
 }
 
 function getPriceTone(priceLevel: string | null) {
-  if (!priceLevel || priceLevel.toLowerCase() === "free") {
-    return "emerald";
-  }
-
+  if (!priceLevel || priceLevel.toLowerCase() === "free") return "emerald";
   return priceLevel.toLowerCase() === "high" ? "amber" : "blue";
 }
 
@@ -84,17 +66,16 @@ function isWikimediaUrl(url: string): boolean {
   return url.startsWith("https://upload.wikimedia.org/");
 }
 
-export function AttractionCard({ attraction }: AttractionCardProps) {
-  const description =
-    attraction.description?.trim() || "No description is available yet.";
+export function AttractionCard({ attraction, onClick }: AttractionCardProps) {
+  const description = getDisplayDescription(attraction);
   const rating =
     attraction.rating === null ? null : Number(attraction.rating).toFixed(1);
 
   const placeholderClass = getPlaceholderClass(attraction.category);
   const imageSrc = attraction.thumbnail_url ?? attraction.image_url ?? null;
 
-  return (
-    <article className="attraction-card">
+  const cardContent = (
+    <>
       <div className={`attraction-card-image ${!imageSrc ? placeholderClass : ""}`}>
         {imageSrc ? (
           <Image
@@ -109,8 +90,7 @@ export function AttractionCard({ attraction }: AttractionCardProps) {
               target.style.display = "none";
               const parent = target.parentElement;
               if (parent) {
-                parent.classList.remove(...Array.from(parent.classList).filter(c => c !== "attraction-card-image"));
-                parent.classList.add("attraction-card-image", placeholderClass);
+                parent.classList.add(placeholderClass);
                 const label = document.createElement("span");
                 label.className = "attraction-placeholder-label";
                 label.textContent = toTitleCase(attraction.category);
@@ -127,12 +107,9 @@ export function AttractionCard({ attraction }: AttractionCardProps) {
 
       <div className="attraction-card-top">
         <div>
-          <p className="attraction-category">
-            {toTitleCase(attraction.category)}
-          </p>
+          <p className="attraction-category">{toTitleCase(attraction.category)}</p>
           <h3>{attraction.name}</h3>
         </div>
-
         {rating ? <span className="rating-pill">Rating {rating}</span> : null}
       </div>
 
@@ -158,6 +135,27 @@ export function AttractionCard({ attraction }: AttractionCardProps) {
           <dd>{formatHours(attraction.opening_time, attraction.closing_time)}</dd>
         </div>
       </dl>
-    </article>
+
+      {onClick && (
+        <div className="attraction-card-view-hint" aria-hidden="true">
+          View details →
+        </div>
+      )}
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className="attraction-card attraction-card-interactive"
+        onClick={onClick}
+        aria-label={`View details for ${attraction.name}`}
+      >
+        {cardContent}
+      </button>
+    );
+  }
+
+  return <article className="attraction-card">{cardContent}</article>;
 }
