@@ -297,6 +297,10 @@ export function ItineraryResult({
         </div>
       </div>
 
+      {adaptation?.recommendationSource === "fallback" ? (
+        <p className="recommendation-source-note">Fallback recommendations</p>
+      ) : null}
+
       {adaptation ? <AdaptationCard adaptation={adaptation} /> : null}
 
       {itinerary.items.length === 0 ? (

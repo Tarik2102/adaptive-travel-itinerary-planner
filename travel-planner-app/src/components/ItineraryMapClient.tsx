@@ -3,6 +3,7 @@
 import L, { type LatLngExpression } from "leaflet";
 import { useEffect, useMemo } from "react";
 import {
+  LayersControl,
   MapContainer,
   Marker,
   Polyline,
@@ -304,10 +305,24 @@ export function ItineraryMapClient({
         scrollWheelZoom={false}
         zoom={DEFAULT_ZOOM}
       >
-        <TileLayer
-          attribution={TILE_LAYER_ATTRIBUTION}
-          url={TILE_LAYER_URL}
-        />
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="OpenStreetMap">
+            <TileLayer
+              attribution={TILE_LAYER_ATTRIBUTION}
+              url={TILE_LAYER_URL}
+            />
+          </LayersControl.BaseLayer>
+
+          {process.env.NEXT_PUBLIC_TOMTOM_API_KEY ? (
+            <LayersControl.Overlay name="Live traffic">
+              <TileLayer
+                attribution="Traffic &copy; TomTom"
+                opacity={0.7}
+                url={`https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${process.env.NEXT_PUBLIC_TOMTOM_API_KEY}`}
+              />
+            </LayersControl.Overlay>
+          ) : null}
+        </LayersControl>
         <FitMapBounds positions={boundsPositions} />
         {legPolylines.map((leg) =>
           leg.positions.length > 1 ? (
