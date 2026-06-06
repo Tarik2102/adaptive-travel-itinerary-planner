@@ -33,6 +33,11 @@ export type ItineraryItem = {
   plannedEndTime: string;
   travelTimeFromPrevious: number;
   legTransport?: "walking" | "driving";
+  baselineTravelTimeSec?: number;
+  liveTravelTimeSec?: number;
+  trafficDelaySec?: number;
+  delayFactor?: number;
+  trafficSource?: "tomtom" | "simulation" | "none";
 };
 
 export type GeneratedItinerary = {
@@ -93,6 +98,7 @@ export type TrafficSimulationRequest = {
   severity: TrafficSeverity;
   affectedLegIndex: number | "auto";
   delayMinutes?: number;
+  source?: "live" | "simulation";
 };
 
 export type ItineraryAdaptation = {
@@ -104,6 +110,7 @@ export type ItineraryAdaptation = {
   affectedAttractions?: AffectedAttraction[];
   feasibilityStatus?: AdaptationFeasibilityStatus;
   trafficSimulation?: TrafficSimulationInfo;
+  fallbackReason?: string;
 };
 
 export type TrafficAdaptRequest = {
