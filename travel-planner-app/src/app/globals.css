@@ -18,6 +18,7 @@
   --shadow-soft: 0 16px 40px rgba(16, 33, 43, 0.1);
   --shadow-hover: 0 20px 48px rgba(16, 33, 43, 0.14);
   --radius: 8px;
+  --navbar-height: 82px;
 }
 
 html {
@@ -81,19 +82,55 @@ code {
   right: 0;
   left: 0;
   z-index: 20;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-  background:
-    linear-gradient(180deg, rgba(6, 28, 43, 0.62), rgba(6, 28, 43, 0.34)),
-    rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 34px rgba(6, 28, 43, 0.12);
-  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  /* Use same gradient format in both states so CSS can interpolate smoothly */
+  background: linear-gradient(
+    180deg,
+    rgba(6, 28, 43, 0.76) 0%,
+    rgba(6, 28, 43, 0.52) 100%
+  );
+  box-shadow: 0 4px 24px rgba(6, 28, 43, 0.18);
+  /* Reduced blur: 18px was causing visual fuzziness on light section backgrounds */
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   transform: translateY(0);
   opacity: 1;
   transition:
-    transform 240ms ease,
-    opacity 240ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease;
+    transform 280ms ease,
+    opacity 280ms ease,
+    background 300ms ease,
+    border-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+/* ── Scrolled state: solid light background, no blur, full contrast ── */
+.site-header-scrolled {
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(247, 251, 253, 0.98) 100%
+  );
+  box-shadow: 0 2px 16px rgba(16, 33, 43, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.site-header-scrolled .nav-links {
+  background: rgba(15, 103, 177, 0.06);
+  border-color: var(--line);
+  box-shadow: inset 0 1px 0 rgba(15, 103, 177, 0.06);
+}
+
+.site-header-scrolled .nav-action {
+  color: #ffffff;
+  background: var(--primary);
+  box-shadow: 0 6px 16px rgba(15, 103, 177, 0.24);
+}
+
+.site-header-scrolled .nav-action:hover {
+  background: var(--primary-strong);
+  box-shadow: 0 8px 20px rgba(15, 103, 177, 0.32);
 }
 
 .site-header-hidden {
@@ -134,7 +171,14 @@ code {
   width: clamp(164px, 21vw, 240px);
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 4px 12px rgba(6, 28, 43, 0.24));
+  /* Hero state: make logo white for sharp visibility on dark photo background */
+  filter: brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.28));
+  transition: filter 280ms ease;
+}
+
+/* Scrolled state: restore natural logo colours on light background */
+.site-header-scrolled .brand-logo {
+  filter: none;
 }
 
 .nav-link,
@@ -154,16 +198,63 @@ code {
     box-shadow 180ms ease;
 }
 
+/* ── Nav link: hero state (dark transparent navbar) ── */
 .nav-link {
-  padding: 0 16px;
-  color: rgba(255, 255, 255, 0.82);
+  position: relative;
+  padding: 0 14px;
+  color: rgba(255, 255, 255, 0.84);
 }
 
-.nav-link:hover,
+/* Underline pseudo-element — clips left-to-right on enter, right-to-left on leave */
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 7px;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.9);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
 .nav-link-active {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 8px 18px rgba(6, 28, 43, 0.14);
+  box-shadow: none;
+}
+
+.nav-link:hover::after,
+.nav-link-active::after {
+  clip-path: inset(0 0% 0 0);
+}
+
+/* ── Nav link: scrolled state (solid light navbar) ── */
+.site-header-scrolled .nav-link {
+  color: var(--foreground);
+}
+
+.site-header-scrolled .nav-link::after {
+  background: var(--primary);
+}
+
+.site-header-scrolled .nav-link:hover {
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  box-shadow: none;
+}
+
+.site-header-scrolled .nav-link-active {
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  box-shadow: none;
 }
 
 .nav-action {
@@ -311,6 +402,11 @@ code {
   padding: 10px 12px;
   color: rgba(255, 255, 255, 0.9);
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Compensate for fixed navbar height on any anchor-target section */
+section[id] {
+  scroll-margin-top: var(--navbar-height);
 }
 
 .page-section {
@@ -1531,8 +1627,22 @@ code {
     background: rgba(6, 28, 43, 0.36);
   }
 
+  /* 4 links in a single row — reduce padding/size to fit comfortably */
   .nav-link {
     flex: 1;
+    padding: 0 10px;
+    font-size: 0.84rem;
+    justify-content: center;
+  }
+
+  .nav-link::after {
+    left: 10px;
+    right: 10px;
+  }
+
+  /* Keep nav-links visually consistent in scrolled state on mobile */
+  .site-header-scrolled .nav-links {
+    background: rgba(15, 103, 177, 0.06);
   }
 
   .hero-overlay {
@@ -1613,6 +1723,26 @@ code {
 
   .brand-logo {
     width: clamp(142px, 62vw, 176px);
+  }
+
+  /* 4 links → 2×2 grid so no text overflow on very small screens */
+  .nav-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .nav-link {
+    min-height: 38px;
+    padding: 0 8px;
+    font-size: 0.8rem;
+    justify-content: center;
+  }
+
+  .nav-link::after {
+    left: 8px;
+    right: 8px;
+    bottom: 5px;
   }
 
   .hero-actions,
