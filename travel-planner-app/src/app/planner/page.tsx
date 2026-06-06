@@ -8,31 +8,32 @@ export default function PlannerPage() {
         <div className="page-container planner-hero-inner">
           <div className="planner-hero-copy">
             <Link href="/" className="back-link">
-              Back to home
+              ← Back to home
             </Link>
-            <p className="eyebrow">Planner workspace</p>
+            <p className="eyebrow">Sarajevo, Bosnia &amp; Herzegovina</p>
             <h1>Sarajevo Travel Planner</h1>
             <p>
-              Set a travel window, choose your interests, and review the
-              Sarajevo attractions currently available through the planner API.
+              Set your travel window, choose your interests, and get a
+              personalized day plan — route-optimized and adapted to weather
+              and traffic in real time.
             </p>
           </div>
 
-          <div className="planner-status-grid" aria-label="Planner modules">
+          <div className="planner-status-grid" aria-label="How the planner works">
             <div>
               <span>01</span>
-              <strong>Preferences</strong>
-              <p>User profile input</p>
+              <strong>Your preferences</strong>
+              <p>Time, interests, pace &amp; budget</p>
             </div>
             <div>
               <span>02</span>
-              <strong>Attractions</strong>
-              <p>Fetched from API</p>
+              <strong>AI itinerary</strong>
+              <p>Scored &amp; route-ordered stops</p>
             </div>
             <div>
               <span>03</span>
-              <strong>Adaptation</strong>
-              <p>Ready for Week 2</p>
+              <strong>Smart adaptation</strong>
+              <p>Weather &amp; traffic-aware</p>
             </div>
           </div>
         </div>

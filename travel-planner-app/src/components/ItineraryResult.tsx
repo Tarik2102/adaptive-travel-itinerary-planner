@@ -255,7 +255,17 @@ export function ItineraryResult({
   itinerary,
 }: ItineraryResultProps) {
   if (!itinerary) {
-    return null;
+    return (
+      <div className="state-panel itinerary-empty-state">
+        <p className="itinerary-empty-eyebrow">Your itinerary</p>
+        <h3>Ready to plan your day?</h3>
+        <p>
+          Choose your interests on the left and click{" "}
+          <strong>Generate itinerary</strong> to build your personalized
+          Sarajevo route.
+        </p>
+      </div>
+    );
   }
 
   return (
