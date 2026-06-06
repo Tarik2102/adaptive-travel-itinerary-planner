@@ -2491,3 +2491,474 @@ section[id] {
     display: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════
+   HIGHLIGHTS FILTER BAR
+═══════════════════════════════════════════════════════ */
+
+.highlights-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.highlights-filter-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+.highlights-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0 14px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.highlights-filter-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  transform: translateY(-1px);
+}
+
+.highlights-filter-chip-active {
+  border-color: rgba(15, 103, 177, 0.55);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px rgba(15, 103, 177, 0.12);
+}
+
+.highlights-filter-chip-active:hover {
+  border-color: var(--primary-strong);
+  background: #d5e9f8;
+}
+
+.highlights-filter-chip:focus-visible {
+  outline: 3px solid rgba(15, 103, 177, 0.22);
+  outline-offset: 2px;
+}
+
+.highlights-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.highlights-filter-clear:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.highlights-filter-clear:focus-visible {
+  outline: 3px solid rgba(15, 103, 177, 0.22);
+  outline-offset: 2px;
+}
+
+/* ══════════════════════════════════════════════════════
+   INTERACTIVE ATTRACTION CARD
+═══════════════════════════════════════════════════════ */
+
+.attraction-card-interactive {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.attraction-card-interactive:focus-visible {
+  outline: 3px solid rgba(15, 103, 177, 0.28);
+  outline-offset: 2px;
+}
+
+.attraction-card-view-hint {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--primary);
+  font-size: 0.84rem;
+  font-weight: 700;
+  transition: color 160ms ease;
+}
+
+.attraction-card-interactive:hover .attraction-card-view-hint {
+  color: var(--primary-strong);
+}
+
+/* ══════════════════════════════════════════════════════
+   ATTRACTION DETAILS MODAL
+═══════════════════════════════════════════════════════ */
+
+.attraction-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(6, 28, 43, 0.6);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  animation: modal-overlay-in 220ms ease forwards;
+}
+
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.attraction-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 600px);
+  max-height: min(92vh, 860px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow:
+    0 4px 12px rgba(6, 28, 43, 0.12),
+    0 24px 64px rgba(6, 28, 43, 0.28);
+  overflow: hidden;
+  animation: modal-in 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.attraction-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(6, 28, 43, 0.52);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.attraction-modal-close:hover {
+  background: rgba(6, 28, 43, 0.78);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.08);
+}
+
+.attraction-modal-close:focus-visible {
+  outline: 3px solid rgba(15, 103, 177, 0.38);
+  outline-offset: 2px;
+}
+
+/* Image section */
+
+.attraction-modal-image-section {
+  flex-shrink: 0;
+}
+
+.attraction-modal-image-wrap {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-soft);
+}
+
+.attraction-modal-image-loading {
+  background: linear-gradient(90deg, #e8f0f4, #f7fbfd, #e8f0f4);
+  background-size: 220% 100%;
+  animation: shimmer 1.35s ease-in-out infinite;
+}
+
+.attraction-modal-loading-text {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  z-index: 1;
+}
+
+.attraction-modal-attribution {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  padding: 6px 10px;
+  background: linear-gradient(0deg, rgba(6, 28, 43, 0.62) 0%, transparent 100%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Gallery navigation overlaid on image */
+
+.attraction-modal-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(6, 28, 43, 0.48);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.attraction-modal-nav-btn:hover {
+  background: rgba(6, 28, 43, 0.72);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.attraction-modal-nav-btn:focus-visible {
+  outline: 3px solid rgba(15, 103, 177, 0.5);
+  outline-offset: 2px;
+}
+
+.attraction-modal-nav-prev {
+  left: 12px;
+  transform: translateY(-50%);
+}
+
+.attraction-modal-nav-next {
+  right: 12px;
+  transform: translateY(-50%);
+}
+
+.attraction-modal-nav-prev:hover {
+  transform: translateY(-50%) scale(1.06);
+}
+
+.attraction-modal-nav-next:hover {
+  transform: translateY(-50%) scale(1.06);
+}
+
+.attraction-modal-gallery-counter {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  border-radius: 999px;
+  padding: 3px 10px;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(6, 28, 43, 0.54);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Modal content body */
+
+.attraction-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  overscroll-behavior: contain;
+}
+
+.attraction-modal-header {
+  display: grid;
+  gap: 10px;
+}
+
+.attraction-modal-name {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.18;
+  letter-spacing: 0;
+  color: var(--foreground);
+}
+
+.attraction-modal-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.attraction-modal-duration {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 10px;
+  color: var(--muted);
+  background: #f7fafb;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.attraction-modal-description {
+  color: var(--foreground);
+  line-height: 1.68;
+  font-size: 0.96rem;
+}
+
+.attraction-modal-description-muted {
+  color: var(--muted);
+}
+
+.attraction-modal-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.attraction-modal-details div {
+  display: grid;
+  gap: 4px;
+}
+
+.attraction-modal-details dt {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.attraction-modal-details dd {
+  color: var(--foreground);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* ══════════════════════════════════════════════════════
+   MODAL + FILTER — RESPONSIVE
+═══════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  .attraction-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .attraction-modal {
+    width: 100%;
+    max-height: 94svh;
+    border-radius: 18px 18px 0 0;
+    animation: modal-in-sheet 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes modal-in-sheet {
+    from { opacity: 0; transform: translateY(40px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .attraction-modal-image-wrap {
+    height: 220px;
+  }
+
+  .attraction-modal-nav-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1.5rem;
+  }
+
+  .attraction-modal-name {
+    font-size: 1.25rem;
+  }
+
+  .attraction-modal-body {
+    padding: 18px;
+    gap: 16px;
+  }
+
+  .attraction-modal-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 460px) {
+  .highlights-filter-bar {
+    gap: 6px;
+    margin-bottom: 22px;
+  }
+
+  .highlights-filter-chip {
+    font-size: 0.82rem;
+    padding: 0 12px;
+    min-height: 34px;
+  }
+
+  .attraction-modal-image-wrap {
+    height: 190px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attraction-modal-overlay,
+  .attraction-modal {
+    animation: none !important;
+  }
+}
