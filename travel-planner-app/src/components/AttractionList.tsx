@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AttractionCard } from "@/components/AttractionCard";
 import { AttractionSkeletonGrid } from "@/components/Loader";
 import { SectionHeader } from "@/components/SectionHeader";
 import type { Attraction } from "@/types/attraction";
+
+const MAX_PER_CATEGORY = 4;
 
 type AttractionsResponse =
   | {
@@ -15,6 +17,19 @@ type AttractionsResponse =
       success: false;
       error?: string;
     };
+
+function toTitleCase(value: string) {
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function getCategoryLabel(attraction: Attraction): string {
+  const raw = attraction.primary_category ?? attraction.category ?? "Other";
+  return toTitleCase(raw);
+}
 
 export function AttractionList() {
   const [attractions, setAttractions] = useState<Attraction[]>([]);
@@ -56,19 +71,30 @@ export function AttractionList() {
     return () => window.clearTimeout(timeoutId);
   }, [fetchAttractions]);
 
+  const groupedAttractions = useMemo(() => {
+    const groups = new Map<string, { preview: Attraction[]; total: number }>();
+    for (const attraction of attractions) {
+      const label = getCategoryLabel(attraction);
+      if (!groups.has(label)) groups.set(label, { preview: [], total: 0 });
+      const group = groups.get(label)!;
+      group.total += 1;
+      if (group.preview.length < MAX_PER_CATEGORY) {
+        group.preview.push(attraction);
+      }
+    }
+    return Array.from(groups.entries());
+  }, [attractions]);
+
   return (
     <section className="attractions-section">
       <SectionHeader
-        eyebrow="Live attraction data"
-        title="Available Sarajevo attractions"
-        description="Cards below are loaded from the existing attractions API without changing backend logic."
+        eyebrow="Explore Sarajevo"
+        title="Sarajevo Highlights"
+        description="A curated sample of top attractions by category. The full dataset powers your itinerary."
       />
 
       {loading ? (
-        <>
-          <p className="state-copy">Loading attractions from the database...</p>
-          <AttractionSkeletonGrid />
-        </>
+        <AttractionSkeletonGrid />
       ) : error ? (
         <div className="state-panel state-panel-error">
           <h3>Attractions could not be loaded</h3>
@@ -87,9 +113,23 @@ export function AttractionList() {
           <p>The database returned an empty attractions list.</p>
         </div>
       ) : (
-        <div className="attraction-grid">
-          {attractions.map((attraction) => (
-            <AttractionCard attraction={attraction} key={attraction.id} />
+        <div className="attractions-by-category">
+          {groupedAttractions.map(([category, { preview, total }]) => (
+            <div className="attractions-category-group" key={category}>
+              <div className="attractions-category-heading">
+                <span className="attractions-category-name">{category}</span>
+                {total > MAX_PER_CATEGORY ? (
+                  <span className="attractions-category-count">
+                    {MAX_PER_CATEGORY} of {total}
+                  </span>
+                ) : null}
+              </div>
+              <div className="attraction-grid">
+                {preview.map((attraction) => (
+                  <AttractionCard attraction={attraction} key={attraction.id} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
