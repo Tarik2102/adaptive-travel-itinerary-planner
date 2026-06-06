@@ -1,3 +1,20 @@
+export type AttractionImage = {
+  id?: number;
+  attraction_id?: number;
+  image_url: string;
+  thumbnail_url?: string | null;
+  source: string;
+  source_page?: string | null;
+  title?: string | null;
+  author?: string | null;
+  license?: string | null;
+  attribution?: string | null;
+  width?: number | null;
+  height?: number | null;
+  sort_order?: number;
+  is_primary?: boolean;
+};
+
 export type Attraction = {
   id: number;
   name: string;
@@ -25,4 +42,7 @@ export type Attraction = {
   source_id?: string | null;
   source_priority?: "osm_primary" | "manual_fallback" | "manual_only";
   canonical_key?: string;
+  image_url?: string | null;
+  thumbnail_url?: string | null;
+  images?: AttractionImage[];
 };

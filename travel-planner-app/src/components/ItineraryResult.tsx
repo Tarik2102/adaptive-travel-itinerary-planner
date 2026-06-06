@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Badge } from "@/components/Badge";
 import { ItineraryMap } from "@/components/ItineraryMap";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -12,6 +13,23 @@ function buildMapKey(itinerary: GeneratedItinerary): string {
   const stopIds = itinerary.items.map((item) => item.attraction.id).join("-");
   const geoCount = itinerary.routeGeometry?.coordinates.length ?? 0;
   return `${stopIds}:${geoCount}`;
+}
+
+function getItineraryPlaceholderClass(category: string): string {
+  const cat = category.toLowerCase();
+  if (cat.includes("museum")) return "placeholder-museum";
+  if (cat.includes("food") || cat.includes("cafe") || cat.includes("restaurant")) return "placeholder-food";
+  if (cat.includes("nature") || cat.includes("park") || cat.includes("viewpoint")) return "placeholder-nature";
+  if (cat.includes("religion") || cat.includes("mosque") || cat.includes("church")) return "placeholder-religion";
+  if (cat.includes("history") || cat.includes("culture") || cat.includes("heritage") || cat.includes("architecture")) return "placeholder-heritage";
+  if (cat.includes("sport")) return "placeholder-sport";
+  if (cat.includes("shopping")) return "placeholder-shopping";
+  if (cat.includes("entertainment")) return "placeholder-entertainment";
+  return "placeholder-default";
+}
+
+function isWikimediaUrl(url: string): boolean {
+  return url.startsWith("https://upload.wikimedia.org/");
 }
 
 function toTitleCase(value: string) {
@@ -291,6 +309,42 @@ export function ItineraryResult({
           <div className="itinerary-list">
             {itinerary.items.map((item, index) => (
               <article className="itinerary-card" key={item.attraction.id}>
+                {(() => {
+                  const imageSrc = item.attraction.thumbnail_url ?? item.attraction.image_url ?? null;
+                  const placeholderClass = getItineraryPlaceholderClass(item.attraction.category);
+                  return imageSrc ? (
+                    <div className="itinerary-card-image">
+                      <Image
+                        src={imageSrc}
+                        alt={item.attraction.name}
+                        fill
+                        sizes="(max-width: 760px) 100vw, 640px"
+                        style={{ objectFit: "cover" }}
+                        unoptimized={isWikimediaUrl(imageSrc)}
+                        onError={(e) => {
+                          const target = e.currentTarget as HTMLImageElement;
+                          target.style.display = "none";
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.classList.remove(...Array.from(parent.classList).filter(c => c !== "itinerary-card-image"));
+                            parent.classList.add("itinerary-card-image", placeholderClass);
+                            const label = document.createElement("span");
+                            label.className = "attraction-placeholder-label";
+                            label.textContent = toTitleCase(item.attraction.category);
+                            parent.appendChild(label);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className={`itinerary-card-image ${placeholderClass}`}>
+                      <span className="attraction-placeholder-label">
+                        {toTitleCase(item.attraction.category)}
+                      </span>
+                    </div>
+                  );
+                })()}
+
                 <div className="itinerary-card-top">
                   <div>
                     <p className="attraction-category">

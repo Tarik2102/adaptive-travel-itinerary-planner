@@ -6,14 +6,20 @@ import type { Attraction } from "@/types/attraction";
 export async function GET() {
   try {
     const rows = await query(`
-      SELECT *
-      FROM attractions
-      WHERE COALESCE(is_active, true) = true
+      SELECT a.*,
+        (
+          SELECT ai.thumbnail_url
+          FROM attraction_images ai
+          WHERE ai.attraction_id = a.id AND ai.is_primary = true
+          LIMIT 1
+        ) AS thumbnail_url
+      FROM attractions a
+      WHERE COALESCE(a.is_active, true) = true
       ORDER BY
-        COALESCE(is_featured, false) DESC,
-        COALESCE(data_quality_score, 0) DESC,
-        COALESCE(popularity_score, 0) DESC,
-        name ASC
+        COALESCE(a.is_featured, false) DESC,
+        COALESCE(a.data_quality_score, 0) DESC,
+        COALESCE(a.popularity_score, 0) DESC,
+        a.name ASC
     `);
 
     const resolved = resolvePreferredAttractions(rows as unknown as Attraction[]);

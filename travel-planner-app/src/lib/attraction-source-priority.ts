@@ -222,6 +222,7 @@ function enrichWithFallback(primary: Attraction, fallback: Attraction | null): A
       primary.estimated_visit_duration > 0
         ? primary.estimated_visit_duration
         : fallback.estimated_visit_duration,
+    image_url: primary.image_url ?? fallback.image_url,
   };
 }
 

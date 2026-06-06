@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Attraction } from "@/types/attraction";
 import { Badge } from "@/components/Badge";
 
@@ -66,14 +67,64 @@ function getTypeTone(type: string | null) {
   return type?.toLowerCase() === "outdoor" ? "emerald" : "slate";
 }
 
+function getPlaceholderClass(category: string): string {
+  const cat = category.toLowerCase();
+  if (cat.includes("museum")) return "placeholder-museum";
+  if (cat.includes("food") || cat.includes("cafe") || cat.includes("restaurant")) return "placeholder-food";
+  if (cat.includes("nature") || cat.includes("park") || cat.includes("viewpoint")) return "placeholder-nature";
+  if (cat.includes("religion") || cat.includes("mosque") || cat.includes("church")) return "placeholder-religion";
+  if (cat.includes("history") || cat.includes("culture") || cat.includes("heritage") || cat.includes("architecture")) return "placeholder-heritage";
+  if (cat.includes("sport")) return "placeholder-sport";
+  if (cat.includes("shopping")) return "placeholder-shopping";
+  if (cat.includes("entertainment")) return "placeholder-entertainment";
+  return "placeholder-default";
+}
+
+function isWikimediaUrl(url: string): boolean {
+  return url.startsWith("https://upload.wikimedia.org/");
+}
+
 export function AttractionCard({ attraction }: AttractionCardProps) {
   const description =
     attraction.description?.trim() || "No description is available yet.";
   const rating =
     attraction.rating === null ? null : Number(attraction.rating).toFixed(1);
 
+  const placeholderClass = getPlaceholderClass(attraction.category);
+  const imageSrc = attraction.thumbnail_url ?? attraction.image_url ?? null;
+
   return (
     <article className="attraction-card">
+      <div className={`attraction-card-image ${!imageSrc ? placeholderClass : ""}`}>
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={attraction.name}
+            fill
+            sizes="(max-width: 760px) 100vw, 50vw"
+            style={{ objectFit: "cover" }}
+            unoptimized={isWikimediaUrl(imageSrc)}
+            onError={(e) => {
+              const target = e.currentTarget as HTMLImageElement;
+              target.style.display = "none";
+              const parent = target.parentElement;
+              if (parent) {
+                parent.classList.remove(...Array.from(parent.classList).filter(c => c !== "attraction-card-image"));
+                parent.classList.add("attraction-card-image", placeholderClass);
+                const label = document.createElement("span");
+                label.className = "attraction-placeholder-label";
+                label.textContent = toTitleCase(attraction.category);
+                parent.appendChild(label);
+              }
+            }}
+          />
+        ) : (
+          <span className="attraction-placeholder-label">
+            {toTitleCase(attraction.category)}
+          </span>
+        )}
+      </div>
+
       <div className="attraction-card-top">
         <div>
           <p className="attraction-category">
