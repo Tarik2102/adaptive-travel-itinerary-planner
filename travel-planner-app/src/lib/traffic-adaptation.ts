@@ -1,5 +1,10 @@
 import { buildMixedModeRoute } from "@/lib/mixed-mode-routing";
 import {
+  getLiveLegTraffic,
+  TRAFFIC_DELAY_FACTOR_THRESHOLD,
+  TRAFFIC_DELAY_SECONDS_THRESHOLD,
+} from "@/lib/live-traffic";
+import {
   type Coordinates,
   type RoutingMetadata,
 } from "@/lib/routing";
@@ -81,6 +86,20 @@ export async function adaptTrafficItinerary(
     currentTotalDuration: currentItinerary.totalDuration,
   });
 
+  // Live traffic path — fetch real data from TomTom and auto-classify.
+  if (simulation.source === "live") {
+    return await handleLive(
+      currentItinerary,
+      preferences,
+      simulation,
+      affectedLegIndex,
+      fromStop,
+      toStop,
+      originalLegMinutes,
+      availableDuration
+    );
+  }
+
   const trafficSimBase = buildTrafficSimInfo(
     simulation,
     affectedLegIndex,
@@ -125,6 +144,205 @@ export async function adaptTrafficItinerary(
     toStop,
     trafficSimBase
   );
+}
+
+async function handleLive(
+  currentItinerary: GeneratedItinerary,
+  preferences: TrafficAdaptPreferences,
+  simulation: TrafficSimulationRequest,
+  affectedLegIndex: number,
+  fromStop: string,
+  toStop: string,
+  originalLegMinutes: number,
+  availableDuration: number
+): Promise<TrafficAdaptResponse> {
+  const items = currentItinerary.items;
+  const startItem = items[affectedLegIndex - 1];
+  const endItem = items[affectedLegIndex];
+
+  const liveTraffic = await getLiveLegTraffic(
+    {
+      lat: Number(startItem.attraction.latitude),
+      lng: Number(startItem.attraction.longitude),
+    },
+    {
+      lat: Number(endItem.attraction.latitude),
+      lng: Number(endItem.attraction.longitude),
+    }
+  );
+
+  // Null means key is missing or TomTom returned an error — fall back to simulation.
+  if (!liveTraffic) {
+    console.log("/api/itinerary/adapt-traffic live: TomTom unavailable, falling back to simulation");
+    const fallbackSim: TrafficSimulationRequest = { ...simulation, source: "simulation" };
+    const delayMinutes = getTrafficDelayMinutes(fallbackSim, originalLegMinutes);
+    const simulatedLegMinutes = originalLegMinutes + delayMinutes;
+    const trafficSimBase = buildTrafficSimInfo(
+      fallbackSim,
+      affectedLegIndex,
+      fromStop,
+      toStop,
+      originalLegMinutes,
+      simulatedLegMinutes,
+      delayMinutes,
+      "delayed_but_feasible"
+    );
+    const result = await dispatchSimulation(
+      currentItinerary,
+      preferences,
+      fallbackSim,
+      affectedLegIndex,
+      delayMinutes,
+      fromStop,
+      toStop,
+      availableDuration,
+      trafficSimBase
+    );
+    // Attach fallbackReason to the adaptation so the caller can surface it.
+    return patchFallbackReason(result, "live_traffic_unavailable");
+  }
+
+  const isSignificant =
+    liveTraffic.delayFactor >= TRAFFIC_DELAY_FACTOR_THRESHOLD ||
+    liveTraffic.trafficDelaySeconds >= TRAFFIC_DELAY_SECONDS_THRESHOLD;
+
+  if (!isSignificant) {
+    console.log("/api/itinerary/adapt-traffic live: delay below threshold — no_effect", {
+      delayFactor: liveTraffic.delayFactor,
+      trafficDelaySeconds: liveTraffic.trafficDelaySeconds,
+    });
+    const trafficSim: TrafficSimulationInfo = {
+      enabled: true,
+      severity: simulation.severity,
+      affectedLegIndex,
+      affectedSegment: { from: fromStop, to: toStop },
+      originalLegTravelTime: originalLegMinutes,
+      simulatedLegTravelTime: originalLegMinutes,
+      addedDelayMinutes: 0,
+      status: "no_effect",
+    };
+    return {
+      trafficDecisionRequired: false,
+      itinerary: currentItinerary,
+      adaptation: {
+        applied: false,
+        reasons: [
+          `Live traffic check: current delay is ${Math.round(liveTraffic.trafficDelaySeconds / 60)} min (factor ${liveTraffic.delayFactor.toFixed(2)}×) — below threshold, no change needed.`,
+        ],
+        feasibilityStatus: toAdaptFeasibilityStatus(currentItinerary.feasibilityStatus),
+        trafficSimulation: trafficSim,
+      },
+    };
+  }
+
+  const delayMinutes = Math.ceil(liveTraffic.trafficDelaySeconds / 60);
+  const simulatedLegMinutes = originalLegMinutes + delayMinutes;
+  const trafficSimBase = buildTrafficSimInfo(
+    simulation,
+    affectedLegIndex,
+    fromStop,
+    toStop,
+    originalLegMinutes,
+    simulatedLegMinutes,
+    delayMinutes,
+    "delayed_but_feasible"
+  );
+
+  console.log("/api/itinerary/adapt-traffic live: significant delay", {
+    delayFactor: liveTraffic.delayFactor.toFixed(2),
+    trafficDelaySeconds: liveTraffic.trafficDelaySeconds,
+    delayMinutes,
+  });
+
+  const newTotalDuration = currentItinerary.totalDuration + delayMinutes;
+
+  if (newTotalDuration <= availableDuration) {
+    // Feasible with real delay — apply it like moderate simulation.
+    const liveResult = handleModerate(
+      currentItinerary,
+      affectedLegIndex,
+      delayMinutes,
+      fromStop,
+      toStop,
+      availableDuration,
+      trafficSimBase
+    );
+    // Stamp live traffic data onto the affected item.
+    return stampLiveTrafficOnItem(liveResult, affectedLegIndex, liveTraffic);
+  }
+
+  // Infeasible — reuse heavy decision flow (user chooses stay or reoptimize).
+  return await handleHeavy(
+    currentItinerary,
+    preferences,
+    affectedLegIndex,
+    delayMinutes,
+    fromStop,
+    toStop,
+    availableDuration,
+    trafficSimBase
+  );
+}
+
+function dispatchSimulation(
+  currentItinerary: GeneratedItinerary,
+  preferences: TrafficAdaptPreferences,
+  simulation: TrafficSimulationRequest,
+  affectedLegIndex: number,
+  delayMinutes: number,
+  fromStop: string,
+  toStop: string,
+  availableDuration: number,
+  trafficSimBase: TrafficSimulationInfo
+): Promise<TrafficAdaptResponse> {
+  if (simulation.severity === "moderate") {
+    return Promise.resolve(
+      handleModerate(currentItinerary, affectedLegIndex, delayMinutes, fromStop, toStop, availableDuration, trafficSimBase)
+    );
+  }
+  if (simulation.severity === "heavy") {
+    return handleHeavy(currentItinerary, preferences, affectedLegIndex, delayMinutes, fromStop, toStop, availableDuration, trafficSimBase);
+  }
+  return handleBlocked(currentItinerary, preferences, affectedLegIndex, fromStop, toStop, trafficSimBase);
+}
+
+function patchFallbackReason(
+  result: TrafficAdaptResponse,
+  fallbackReason: string
+): TrafficAdaptResponse {
+  if (result.trafficDecisionRequired) {
+    return {
+      ...result,
+      adaptation: { ...result.adaptation, fallbackReason },
+    };
+  }
+  return {
+    ...result,
+    adaptation: { ...result.adaptation, fallbackReason },
+  };
+}
+
+function stampLiveTrafficOnItem(
+  result: TrafficAdaptResponse,
+  affectedLegIndex: number,
+  liveTraffic: { liveSeconds: number; baselineSeconds: number; trafficDelaySeconds: number; delayFactor: number }
+): TrafficAdaptResponse {
+  if (result.trafficDecisionRequired) return result;
+  const items = result.itinerary.items.map((item, idx) => {
+    if (idx !== affectedLegIndex) return item;
+    return {
+      ...item,
+      liveTravelTimeSec: liveTraffic.liveSeconds,
+      baselineTravelTimeSec: liveTraffic.baselineSeconds,
+      trafficDelaySec: liveTraffic.trafficDelaySeconds,
+      delayFactor: liveTraffic.delayFactor,
+      trafficSource: "tomtom" as const,
+    };
+  });
+  return {
+    ...result,
+    itinerary: { ...result.itinerary, items },
+  };
 }
 
 export function chooseAffectedTrafficLeg(

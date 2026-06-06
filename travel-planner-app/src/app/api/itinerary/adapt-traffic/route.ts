@@ -15,6 +15,7 @@ const trafficSimulationSchema = z.object({
     .union([z.number().int().min(0), z.literal("auto")])
     .default("auto"),
   delayMinutes: z.number().int().positive().optional(),
+  source: z.enum(["live", "simulation"]).optional(),
 });
 
 const attractionSchema = z
@@ -101,14 +102,26 @@ export async function POST(request: Request) {
     interests: preferences.interests,
   };
 
+  // Default source: "live" when TOMTOM_API_KEY is set, else "simulation".
+  const resolvedSource: "live" | "simulation" =
+    trafficSimulation.source ??
+    (process.env.TOMTOM_API_KEY ? "live" : "simulation");
+
+  const resolvedSimulation = { ...trafficSimulation, source: resolvedSource };
+
   try {
     const result = await adaptTrafficItinerary(
       currentItinerary as GeneratedItinerary,
       adaptPreferences,
-      trafficSimulation
+      resolvedSimulation
     );
 
-    return NextResponse.json(result);
+    const { fallbackReason } = result.adaptation;
+
+    return NextResponse.json({
+      ...result,
+      ...(fallbackReason ? { fallbackReason } : {}),
+    });
   } catch (error) {
     console.error("adapt-traffic error:", error);
     return NextResponse.json(

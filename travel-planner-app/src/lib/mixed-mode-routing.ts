@@ -9,17 +9,23 @@ import {
   type RoutingTransport,
 } from "@/lib/routing";
 import type { Coordinate, RouteGeometry } from "@/types/itinerary";
+import {
+  getLiveLegTraffic,
+  type LiveLegTraffic,
+} from "@/lib/live-traffic";
 
 export type MixedModeRouteResult = {
   routeGeometry: RouteGeometry | undefined;
   routing: RoutingMetadata;
   legTransports: RoutingTransport[];
   legDurationsMinutes: number[];
+  legLiveTraffic?: Array<LiveLegTraffic | null>;
 };
 
 export async function buildMixedModeRoute(
   coordinates: Coordinates[],
-  preferredTransport: RoutingTransport
+  preferredTransport: RoutingTransport,
+  useLiveTraffic = false
 ): Promise<MixedModeRouteResult> {
   if (coordinates.length < 2) {
     return {
@@ -37,6 +43,7 @@ export async function buildMixedModeRoute(
   const legCount = coordinates.length - 1;
   const legTransports: RoutingTransport[] = [];
   const legDurationsMinutes: number[] = [];
+  const legLiveTrafficResults: Array<LiveLegTraffic | null> = [];
   const legs: RouteLeg[] = [];
   const allCoords: Coordinate[] = [];
   let overallProvider: RoutingProvider = "openrouteservice";
@@ -92,6 +99,16 @@ export async function buildMixedModeRoute(
     const coordsToAdd = allCoords.length === 0 ? legCoords : legCoords.slice(1);
     allCoords.push(...coordsToAdd);
 
+    if (useLiveTraffic && legMode === "driving") {
+      const liveTraffic = await getLiveLegTraffic(
+        { lat: from.latitude, lng: from.longitude },
+        { lat: to.latitude, lng: to.longitude }
+      );
+      legLiveTrafficResults.push(liveTraffic);
+    } else {
+      legLiveTrafficResults.push(null);
+    }
+
     legDurationsMinutes.push(travelMinutes);
     legs.push({
       fromIndex: i,
@@ -132,5 +149,6 @@ export async function buildMixedModeRoute(
     },
     legTransports,
     legDurationsMinutes,
+    ...(useLiveTraffic ? { legLiveTraffic: legLiveTrafficResults } : {}),
   };
 }

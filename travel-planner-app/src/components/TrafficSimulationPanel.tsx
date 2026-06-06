@@ -34,6 +34,7 @@ export function TrafficSimulationPanel({
   const [affectedLegIndex, setAffectedLegIndex] = useState<number | "auto">(
     "auto"
   );
+  const [useLiveTraffic, setUseLiveTraffic] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
@@ -43,6 +44,11 @@ export function TrafficSimulationPanel({
     null
   );
   const [stayNote, setStayNote] = useState<string | null>(null);
+  const [liveTrafficInfo, setLiveTrafficInfo] = useState<{
+    trafficDelaySec?: number;
+    trafficSource?: string;
+    fallbackReason?: string;
+  } | null>(null);
 
   const stopCount = itinerary.items.length;
 
@@ -51,6 +57,7 @@ export function TrafficSimulationPanel({
     setError(null);
     setBlockedNotification(null);
     setStayNote(null);
+    setLiveTrafficInfo(null);
 
     try {
       const response = await fetch("/api/itinerary/adapt-traffic", {
@@ -69,12 +76,14 @@ export function TrafficSimulationPanel({
             enabled: true,
             severity,
             affectedLegIndex,
+            source: useLiveTraffic ? "live" : "simulation",
           },
         }),
       });
 
       const result = (await response.json()) as TrafficAdaptResponse & {
         error?: string;
+        fallbackReason?: string;
       };
 
       if (!response.ok) {
@@ -95,6 +104,18 @@ export function TrafficSimulationPanel({
           setBlockedNotification(
             "Route blocked. The itinerary was automatically updated."
           );
+        }
+
+        // Collect live traffic metadata from the affected leg if present.
+        if (useLiveTraffic) {
+          const affectedItem = result.itinerary.items.find(
+            (item) => item.trafficSource === "tomtom"
+          );
+          setLiveTrafficInfo({
+            trafficDelaySec: affectedItem?.trafficDelaySec,
+            trafficSource: affectedItem?.trafficSource ?? result.adaptation.trafficSimulation?.status,
+            fallbackReason: result.fallbackReason,
+          });
         }
       }
     } catch (err) {
@@ -198,6 +219,19 @@ export function TrafficSimulationPanel({
               </label>
             </div>
 
+            <label className="traffic-live-toggle">
+              <input
+                type="checkbox"
+                checked={useLiveTraffic}
+                onChange={(e) => {
+                  setUseLiveTraffic(e.target.checked);
+                  setLiveTrafficInfo(null);
+                }}
+                disabled={isSimulating}
+              />
+              <span>Use live traffic (TomTom)</span>
+            </label>
+
             {severity === "moderate" ? (
               <p className="traffic-severity-hint">
                 Moderate delay: adds ~15–50% extra travel time. No route change
@@ -231,6 +265,23 @@ export function TrafficSimulationPanel({
             {stayNote ? (
               <div className="traffic-notification traffic-notification-info" role="status">
                 {stayNote}
+              </div>
+            ) : null}
+
+            {liveTrafficInfo ? (
+              <div className="traffic-notification traffic-notification-info" role="status">
+                {liveTrafficInfo.fallbackReason ? (
+                  <span>
+                    Live traffic unavailable ({liveTrafficInfo.fallbackReason}) — fell back to simulation.
+                  </span>
+                ) : (
+                  <span>
+                    Live traffic source: <strong>{liveTrafficInfo.trafficSource ?? "tomtom"}</strong>
+                    {liveTrafficInfo.trafficDelaySec !== undefined
+                      ? ` · delay ${Math.round(liveTrafficInfo.trafficDelaySec / 60)} min`
+                      : ""}
+                  </span>
+                )}
               </div>
             ) : null}
 
