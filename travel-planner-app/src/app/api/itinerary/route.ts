@@ -18,6 +18,7 @@ import {
   type RoutingMetadata,
 } from "@/lib/routing";
 import { getCurrentWeather, type WeatherInfo } from "@/lib/weather";
+import { rankAttractionsLocally } from "@/lib/recommendation-fallback";
 import { applyWeatherAdaptation } from "@/lib/weather-adaptation";
 import type { Attraction } from "@/types/attraction";
 import type { GeneratedItinerary, RankedAttraction } from "@/types/itinerary";
@@ -175,10 +176,8 @@ export async function POST(request: Request) {
       });
     }
 
-    const rankedAttractions = await fetchRankedAttractions(
-      preferences,
-      resolvedAttractions
-    );
+    const { rankedAttractions, recommendationSource } =
+      await fetchRankedAttractionsWithFallback(preferences, resolvedAttractions);
     const weather = await fetchWeatherForAdaptation();
     const weatherAdaptation = applyWeatherAdaptation(
       rankedAttractions,
@@ -194,10 +193,23 @@ export async function POST(request: Request) {
       preferences,
       candidates
     );
-    const adaptation = mergeAdaptations(
+    const mergedAdaptation = mergeAdaptations(
       weatherAdaptation.adaptation,
       feasibilityAdaptation.adaptation
     );
+    const adaptation = {
+      ...mergedAdaptation,
+      recommendationSource,
+      ...(recommendationSource === "fallback"
+        ? {
+            applied: true,
+            reasons: [
+              ...mergedAdaptation.reasons,
+              "Recommendations generated in fallback mode — ML service unavailable",
+            ],
+          }
+        : {}),
+    };
     const { itinerary: routedItinerary } = await applyMixedModeRoute(
       feasibilityAdaptation.itinerary,
       preferences
@@ -208,19 +220,9 @@ export async function POST(request: Request) {
       success: true,
       itinerary: routedItinerary,
       adaptation,
+      recommendationSource,
     });
   } catch (error) {
-    if (error instanceof RecommendationServiceError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Recommendation service request failed",
-          details: error.message,
-        },
-        { status: 502 }
-      );
-    }
-
     console.error("Itinerary generation error:", error);
 
     return NextResponse.json(
@@ -316,8 +318,6 @@ async function fetchRankedAttractions(
 ): Promise<RankedAttraction[]> {
   const serviceUrl = process.env.ML_SERVICE_URL || "http://localhost:8000";
   const endpoint = `${serviceUrl.replace(/\/$/, "")}/recommend`;
-  const controller = new AbortController();
-  const timeoutId = windowlessSetTimeout(() => controller.abort(), 12000);
 
   try {
     const response = await fetch(endpoint, {
@@ -329,7 +329,7 @@ async function fetchRankedAttractions(
         preferences: toRecommendationPreferences(preferences),
         attractions: attractions.map(toRecommendationPayload),
       }),
-      signal: controller.signal,
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!response.ok) {
@@ -339,7 +339,13 @@ async function fetchRankedAttractions(
     }
 
     const payload = (await response.json()) as unknown;
-    return parseRecommendationResponse(payload);
+    const ranked = parseRecommendationResponse(payload);
+
+    if (ranked.length === 0) {
+      throw new RecommendationServiceError("Service returned empty rankings");
+    }
+
+    return ranked;
   } catch (error) {
     if (error instanceof RecommendationServiceError) {
       throw error;
@@ -351,8 +357,27 @@ async function fetchRankedAttractions(
         : "Recommendation service is unavailable";
 
     throw new RecommendationServiceError(message);
-  } finally {
-    clearTimeout(timeoutId);
+  }
+}
+
+async function fetchRankedAttractionsWithFallback(
+  preferences: PlannerPreferences,
+  attractions: Attraction[]
+): Promise<{ rankedAttractions: RankedAttraction[]; recommendationSource: "ml" | "fallback" }> {
+  try {
+    const rankedAttractions = await fetchRankedAttractions(preferences, attractions);
+    return { rankedAttractions, recommendationSource: "ml" };
+  } catch (error) {
+    const reason =
+      error instanceof Error ? error.message : "ML service unavailable";
+    console.warn(
+      "ML recommendation service unavailable, using local fallback:",
+      reason
+    );
+    return {
+      rankedAttractions: rankAttractionsLocally(attractions, preferences),
+      recommendationSource: "fallback",
+    };
   }
 }
 

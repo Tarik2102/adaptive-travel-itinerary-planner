@@ -11,6 +11,7 @@ export function createEmptyAdaptation(
   return {
     applied: false,
     reasons: [],
+    recommendationSource: "ml",
     ...overrides,
   };
 }

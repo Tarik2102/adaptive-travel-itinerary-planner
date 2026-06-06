@@ -111,6 +111,7 @@ export type ItineraryAdaptation = {
   feasibilityStatus?: AdaptationFeasibilityStatus;
   trafficSimulation?: TrafficSimulationInfo;
   fallbackReason?: string;
+  recommendationSource?: "ml" | "fallback";
 };
 
 export type TrafficAdaptRequest = {
@@ -151,6 +152,7 @@ export type ItinerarySuccessResponse = {
   success: true;
   itinerary: GeneratedItinerary;
   adaptation: ItineraryAdaptation;
+  recommendationSource: "ml" | "fallback";
 };
 
 export type ItineraryErrorResponse = {
