@@ -88,6 +88,8 @@ type AttractionRow = QueryResultRow & {
   cleaning_notes: string | null;
   source: string | null;
   source_id: string | null;
+  image_url: string | null;
+  thumbnail_url: string | null;
   created_at?: string | Date | null;
 };
 
@@ -256,6 +258,13 @@ async function fetchAttractions(): Promise<Attraction[]> {
       cleaning_notes,
       source,
       source_id,
+      image_url,
+      (
+        SELECT ai.thumbnail_url
+        FROM attraction_images ai
+        WHERE ai.attraction_id = attractions.id AND ai.is_primary = true
+        LIMIT 1
+      ) AS thumbnail_url,
       created_at
     FROM attractions
     WHERE COALESCE(is_active, true) = true
@@ -295,6 +304,8 @@ function normalizeAttraction(row: AttractionRow): Attraction {
     cleaning_notes: row.cleaning_notes ?? undefined,
     source: row.source ?? null,
     source_id: row.source_id ?? null,
+    image_url: row.image_url ?? null,
+    thumbnail_url: row.thumbnail_url ?? null,
     created_at: row.created_at ? String(row.created_at) : undefined,
   };
 }
