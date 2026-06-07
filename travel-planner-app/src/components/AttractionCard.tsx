@@ -68,9 +68,6 @@ function isWikimediaUrl(url: string): boolean {
 
 export function AttractionCard({ attraction, onClick }: AttractionCardProps) {
   const description = getDisplayDescription(attraction);
-  const rating =
-    attraction.rating === null ? null : Number(attraction.rating).toFixed(1);
-
   const placeholderClass = getPlaceholderClass(attraction.category);
   const imageSrc = attraction.thumbnail_url ?? attraction.image_url ?? null;
 
@@ -110,7 +107,6 @@ export function AttractionCard({ attraction, onClick }: AttractionCardProps) {
           <p className="attraction-category">{toTitleCase(attraction.category)}</p>
           <h3>{attraction.name}</h3>
         </div>
-        {rating ? <span className="rating-pill">Rating {rating}</span> : null}
       </div>
 
       <p className="attraction-description">{description}</p>

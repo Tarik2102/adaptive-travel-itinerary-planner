@@ -1,13 +1,22 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
+import { AttractionDetailsModal } from "@/components/AttractionDetailsModal";
 import { Badge } from "@/components/Badge";
 import { ItineraryMap } from "@/components/ItineraryMap";
 import { SectionHeader } from "@/components/SectionHeader";
+import type { Attraction, AttractionImage } from "@/types/attraction";
 import type { GeneratedItinerary, ItineraryAdaptation } from "@/types/itinerary";
 
 type ItineraryResultProps = {
   adaptation: ItineraryAdaptation | null;
   itinerary: GeneratedItinerary | null;
 };
+
+type ImagesResponse =
+  | { success: true; data: AttractionImage[] }
+  | { success: false; error?: string };
 
 function buildMapKey(itinerary: GeneratedItinerary): string {
   const stopIds = itinerary.items.map((item) => item.attraction.id).join("-");
@@ -254,6 +263,39 @@ export function ItineraryResult({
   adaptation,
   itinerary,
 }: ItineraryResultProps) {
+  const [selectedAttraction, setSelectedAttraction] = useState<Attraction | null>(null);
+  const [modalImages, setModalImages] = useState<AttractionImage[]>([]);
+  const [modalImagesLoading, setModalImagesLoading] = useState(false);
+  const imageCache = useRef<Map<number, AttractionImage[]>>(new Map());
+
+  const handleCardClick = useCallback(async (attraction: Attraction) => {
+    setSelectedAttraction(attraction);
+
+    if (imageCache.current.has(attraction.id)) {
+      setModalImages(imageCache.current.get(attraction.id)!);
+      setModalImagesLoading(false);
+      return;
+    }
+
+    setModalImages([]);
+    setModalImagesLoading(true);
+    try {
+      const res = await fetch(`/api/attractions/${attraction.id}/images`);
+      const data = (await res.json()) as ImagesResponse;
+      const imgs = data.success ? data.data : [];
+      imageCache.current.set(attraction.id, imgs);
+      setModalImages(imgs);
+    } catch {
+      setModalImages([]);
+    } finally {
+      setModalImagesLoading(false);
+    }
+  }, []);
+
+  const handleModalClose = useCallback(() => {
+    setSelectedAttraction(null);
+  }, []);
+
   if (!itinerary) {
     return (
       <div className="state-panel itinerary-empty-state">
@@ -322,7 +364,13 @@ export function ItineraryResult({
 
           <div className="itinerary-list">
             {itinerary.items.map((item, index) => (
-              <article className="itinerary-card" key={item.attraction.id}>
+              <button
+                type="button"
+                className="itinerary-card itinerary-card-clickable"
+                key={item.attraction.id}
+                onClick={() => void handleCardClick(item.attraction)}
+                aria-label={`View details for ${item.attraction.name}`}
+              >
                 {(() => {
                   const imageSrc = item.attraction.thumbnail_url ?? item.attraction.image_url ?? null;
                   const placeholderClass = getItineraryPlaceholderClass(item.attraction.category);
@@ -399,11 +447,18 @@ export function ItineraryResult({
                     </dd>
                   </div>
                 </dl>
-              </article>
+              </button>
             ))}
           </div>
         </>
       )}
+
+      <AttractionDetailsModal
+        attraction={selectedAttraction}
+        images={modalImages}
+        imagesLoading={modalImagesLoading}
+        onClose={handleModalClose}
+      />
     </section>
   );
 }

@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import type { ItineraryApiResponse, ItineraryPlan } from "@/types/itinerary";
+import { TimePicker } from "@/components/TimePicker";
 import {
   interestGroups,
   travelInterestOptions,
@@ -405,29 +406,29 @@ export function PreferenceForm({
       </fieldset>
 
       <div className="form-grid">
-        <label className="field">
-          <span>Start time</span>
-          <input
-            type="time"
+        <div className="field" role="group" aria-label="Start time">
+          <span id="start-time-label">Start time</span>
+          <TimePicker
             value={startTime}
-            onChange={(event) => {
-              setStartTime(event.target.value);
+            onChange={(v) => {
+              setStartTime(v);
               handlePreferencesChanged();
             }}
+            disabled={isSubmitting}
           />
-        </label>
+        </div>
 
-        <label className="field">
-          <span>End time</span>
-          <input
-            type="time"
+        <div className="field" role="group" aria-label="End time">
+          <span id="end-time-label">End time</span>
+          <TimePicker
             value={endTime}
-            onChange={(event) => {
-              setEndTime(event.target.value);
+            onChange={(v) => {
+              setEndTime(v);
               handlePreferencesChanged();
             }}
+            disabled={isSubmitting}
           />
-        </label>
+        </div>
 
         <label className="field">
           <span>Budget level</span>
