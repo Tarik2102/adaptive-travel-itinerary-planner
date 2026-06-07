@@ -60,7 +60,7 @@ export function getRequestedGroups(interests: string[]): InterestGroupId[] {
 
 // ── Personas ──────────────────────────────────────────────────────────────────
 
-const PERSONAS: Persona[] = [
+export const PERSONAS: Persona[] = [
   {
     id: "P1",
     name: "History buff",

@@ -1,6 +1,6 @@
 [
   {
-    "runId": "aaa639c5-5ea8-4cd6-ae4a-d7e4f4d6407b",
+    "runId": "054a5907-74d2-4ae5-ad2b-07cc6b391e20",
     "scenarioId": "P1-clear-none-adaptive",
     "personaId": "P1",
     "weather": "clear",
@@ -13,7 +13,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 3873.4,
+    "generationResponseMs": 1560,
     "stopCount": 8,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -22,7 +22,7 @@
     "reoptimized": null
   },
   {
-    "runId": "4f16004f-b5e9-4bad-8f14-25f1c8a2a0bc",
+    "runId": "c3448e62-28e1-45d1-acc5-e2751a1318dc",
     "scenarioId": "P1-clear-none-static",
     "personaId": "P1",
     "weather": "clear",
@@ -35,7 +35,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 3521.6,
+    "generationResponseMs": 1696.6,
     "stopCount": 8,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -44,7 +44,7 @@
     "reoptimized": null
   },
   {
-    "runId": "b8f175f7-10f5-47f8-befb-4d22cd7e0b7c",
+    "runId": "bd6b3d1c-898c-4b28-86f7-decba189cf1d",
     "scenarioId": "P1-clear-moderate-adaptive",
     "personaId": "P1",
     "weather": "clear",
@@ -57,7 +57,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 3294,
+    "generationResponseMs": 1440,
     "stopCount": 8,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -66,7 +66,7 @@
     "reoptimized": null
   },
   {
-    "runId": "62ed012b-2214-46aa-9102-4f1fdcc8aa19",
+    "runId": "73f6febf-86de-4ac6-9e0d-cd47d9d5580f",
     "scenarioId": "P1-clear-moderate-static",
     "personaId": "P1",
     "weather": "clear",
@@ -79,7 +79,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 3459,
+    "generationResponseMs": 1453.2,
     "stopCount": 8,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -88,7 +88,7 @@
     "reoptimized": null
   },
   {
-    "runId": "6b5688a6-12e6-4cc6-92d0-cade9baf5728",
+    "runId": "a5f290da-bea8-42c3-9f8a-f3aa37868660",
     "scenarioId": "P1-clear-heavy-adaptive",
     "personaId": "P1",
     "weather": "clear",
@@ -101,7 +101,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 3182.4,
+    "generationResponseMs": 1439.2,
     "stopCount": 8,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -110,7 +110,7 @@
     "reoptimized": null
   },
   {
-    "runId": "c3257164-f1e3-4529-bfa9-12dfec01224e",
+    "runId": "bca08283-429f-429f-a20b-77eaf75c0809",
     "scenarioId": "P1-clear-heavy-static",
     "personaId": "P1",
     "weather": "clear",
@@ -123,7 +123,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 3315.8,
+    "generationResponseMs": 1506.6,
     "stopCount": 8,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -132,7 +132,7 @@
     "reoptimized": null
   },
   {
-    "runId": "96ccae2b-a369-4f9c-a3a2-a69a23a706d8",
+    "runId": "baa40cef-a25b-42e7-a08a-957cb0d9bab9",
     "scenarioId": "P1-clear-blocked-adaptive",
     "personaId": "P1",
     "weather": "clear",
@@ -145,7 +145,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1687.2,
+    "generationResponseMs": 1468,
     "stopCount": 8,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -154,7 +154,7 @@
     "reoptimized": null
   },
   {
-    "runId": "ac92eef9-d5ec-4d0f-81f0-87eafd18e26a",
+    "runId": "785f2f5f-5ab0-4c72-85a4-357103a8266e",
     "scenarioId": "P1-clear-blocked-static",
     "personaId": "P1",
     "weather": "clear",
@@ -167,7 +167,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 3496.6,
+    "generationResponseMs": 1457.2,
     "stopCount": 8,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -176,7 +176,7 @@
     "reoptimized": null
   },
   {
-    "runId": "18ec1732-21ba-4de6-964e-6b5a79c23b03",
+    "runId": "b1084319-cc8b-4872-b2a3-985ad83d2d8f",
     "scenarioId": "P1-rain-none-adaptive",
     "personaId": "P1",
     "weather": "rain",
@@ -189,7 +189,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 3429.2,
+    "generationResponseMs": 1548.4,
     "stopCount": 7,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -198,7 +198,7 @@
     "reoptimized": null
   },
   {
-    "runId": "61aee023-9c08-4d3f-b90f-54e0883a109a",
+    "runId": "77da2763-1152-493d-9ec6-55943763a82d",
     "scenarioId": "P1-rain-none-static",
     "personaId": "P1",
     "weather": "rain",
@@ -211,7 +211,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 3190.4,
+    "generationResponseMs": 1447.8,
     "stopCount": 8,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -220,7 +220,7 @@
     "reoptimized": null
   },
   {
-    "runId": "884da4a2-b773-4028-a6f7-214f36d542da",
+    "runId": "1c79f4f2-82d0-4749-965d-df010f948872",
     "scenarioId": "P1-rain-moderate-adaptive",
     "personaId": "P1",
     "weather": "rain",
@@ -233,7 +233,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 2877.6,
+    "generationResponseMs": 1455.2,
     "stopCount": 7,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -242,7 +242,7 @@
     "reoptimized": null
   },
   {
-    "runId": "f0a65dde-9850-440f-960b-a2d29d0ecf03",
+    "runId": "4b0cb26a-11b4-4411-bea1-29dc4b5c9786",
     "scenarioId": "P1-rain-moderate-static",
     "personaId": "P1",
     "weather": "rain",
@@ -255,7 +255,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 2976.8,
+    "generationResponseMs": 1423.6,
     "stopCount": 8,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -264,7 +264,7 @@
     "reoptimized": null
   },
   {
-    "runId": "dc1d16b4-9980-4f77-bd61-7a646fbe5acc",
+    "runId": "8d8886ee-0239-471f-8335-de6d5e06c38b",
     "scenarioId": "P1-rain-heavy-adaptive",
     "personaId": "P1",
     "weather": "rain",
@@ -277,7 +277,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 3138.8,
+    "generationResponseMs": 1462.2,
     "stopCount": 7,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -286,7 +286,7 @@
     "reoptimized": null
   },
   {
-    "runId": "bc120087-e957-479f-925a-ee4bb114e391",
+    "runId": "7b90fa33-866f-4f1a-8085-789f861cb130",
     "scenarioId": "P1-rain-heavy-static",
     "personaId": "P1",
     "weather": "rain",
@@ -299,7 +299,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 3024.2,
+    "generationResponseMs": 1423.6,
     "stopCount": 8,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -308,7 +308,7 @@
     "reoptimized": null
   },
   {
-    "runId": "38b87f59-5804-489e-807b-6c1f2e349b51",
+    "runId": "605143e8-96d7-4134-af51-7af30348c70c",
     "scenarioId": "P1-rain-blocked-adaptive",
     "personaId": "P1",
     "weather": "rain",
@@ -321,7 +321,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 3010.2,
+    "generationResponseMs": 1468.6,
     "stopCount": 7,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -330,7 +330,7 @@
     "reoptimized": null
   },
   {
-    "runId": "5019e12b-e958-4618-ae27-061913312c65",
+    "runId": "9711b16e-bad2-4343-ac53-675ffb6ab7c3",
     "scenarioId": "P1-rain-blocked-static",
     "personaId": "P1",
     "weather": "rain",
@@ -343,7 +343,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 2196,
+    "generationResponseMs": 1449.2,
     "stopCount": 8,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -352,7 +352,7 @@
     "reoptimized": null
   },
   {
-    "runId": "76c2a40a-262f-42c8-8928-bc534b17c39d",
+    "runId": "f143e6d3-d462-4653-b791-0c7858fddd3e",
     "scenarioId": "P2-clear-none-adaptive",
     "personaId": "P2",
     "weather": "clear",
@@ -365,7 +365,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1745.8,
+    "generationResponseMs": 952.6,
     "stopCount": 4,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -374,7 +374,7 @@
     "reoptimized": null
   },
   {
-    "runId": "3d01f692-52bf-451e-aeac-223f9d6c9f13",
+    "runId": "98a925ba-0099-4fe2-ac02-5225ca912f8e",
     "scenarioId": "P2-clear-none-static",
     "personaId": "P2",
     "weather": "clear",
@@ -387,7 +387,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 2169.2,
+    "generationResponseMs": 945.6,
     "stopCount": 4,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -396,7 +396,7 @@
     "reoptimized": null
   },
   {
-    "runId": "f3cd3f03-106f-415c-be4b-67ade716ce97",
+    "runId": "900a4203-569b-445c-b273-f0aa470ed707",
     "scenarioId": "P2-clear-moderate-adaptive",
     "personaId": "P2",
     "weather": "clear",
@@ -409,7 +409,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 2556.6,
+    "generationResponseMs": 960.4,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -418,7 +418,7 @@
     "reoptimized": null
   },
   {
-    "runId": "edc07e0c-0987-4b24-b593-6a8f8d5970a6",
+    "runId": "c2653109-f695-4699-9e22-7c8e38c95ef5",
     "scenarioId": "P2-clear-moderate-static",
     "personaId": "P2",
     "weather": "clear",
@@ -431,7 +431,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 2398.2,
+    "generationResponseMs": 954.2,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -440,7 +440,7 @@
     "reoptimized": null
   },
   {
-    "runId": "053aa161-cd17-461c-bd46-30481fd1aba2",
+    "runId": "83749a45-26c2-4de2-be72-7494bec9f034",
     "scenarioId": "P2-clear-heavy-adaptive",
     "personaId": "P2",
     "weather": "clear",
@@ -453,7 +453,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 2108.8,
+    "generationResponseMs": 966.6,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -462,7 +462,7 @@
     "reoptimized": null
   },
   {
-    "runId": "fe6577d5-48b4-4959-b99b-327bb0c13b5c",
+    "runId": "7e5916d8-f582-4afc-a3bf-a48dca898081",
     "scenarioId": "P2-clear-heavy-static",
     "personaId": "P2",
     "weather": "clear",
@@ -475,7 +475,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1963.4,
+    "generationResponseMs": 944.6,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -484,7 +484,7 @@
     "reoptimized": null
   },
   {
-    "runId": "56123e49-a9c1-4df7-827f-fde68bfe2560",
+    "runId": "dea25e90-5a69-4869-83b3-fecd4f13d85d",
     "scenarioId": "P2-clear-blocked-adaptive",
     "personaId": "P2",
     "weather": "clear",
@@ -497,7 +497,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1716.8,
+    "generationResponseMs": 940.2,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -506,7 +506,7 @@
     "reoptimized": null
   },
   {
-    "runId": "2e83ead0-4568-4a2b-98ee-9947ddcd0213",
+    "runId": "b010a9e6-6940-45ec-a6df-58ba901dc9d8",
     "scenarioId": "P2-clear-blocked-static",
     "personaId": "P2",
     "weather": "clear",
@@ -519,7 +519,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1875.8,
+    "generationResponseMs": 941.8,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -528,7 +528,7 @@
     "reoptimized": null
   },
   {
-    "runId": "ff2381d8-6c60-457d-bee2-571f1d490b2d",
+    "runId": "e9fb1c1f-ab17-49b3-b8ca-4722792c7b79",
     "scenarioId": "P2-rain-none-adaptive",
     "personaId": "P2",
     "weather": "rain",
@@ -541,7 +541,7 @@
     "interestRecall": 0.5,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1843,
+    "generationResponseMs": 958.2,
     "stopCount": 3,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -550,7 +550,7 @@
     "reoptimized": null
   },
   {
-    "runId": "420a1815-38c6-4685-bbc0-b9c3bb63dffc",
+    "runId": "989a5663-bd41-40bb-9a1e-d279fc0b8726",
     "scenarioId": "P2-rain-none-static",
     "personaId": "P2",
     "weather": "rain",
@@ -563,7 +563,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1876.6,
+    "generationResponseMs": 944.6,
     "stopCount": 4,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -572,7 +572,7 @@
     "reoptimized": null
   },
   {
-    "runId": "1e0ccbd1-6cc1-49bb-a459-d17d906c212c",
+    "runId": "7c8b6903-b252-4034-8e3a-3ff2f5f27bbd",
     "scenarioId": "P2-rain-moderate-adaptive",
     "personaId": "P2",
     "weather": "rain",
@@ -585,7 +585,7 @@
     "interestRecall": 0.5,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1758.2,
+    "generationResponseMs": 962,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -594,7 +594,7 @@
     "reoptimized": null
   },
   {
-    "runId": "f7c0804e-068c-4ddb-b96e-dbee362384f6",
+    "runId": "9fb41d4d-4957-4b51-ac81-c41a1b10db1e",
     "scenarioId": "P2-rain-moderate-static",
     "personaId": "P2",
     "weather": "rain",
@@ -607,7 +607,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1722.4,
+    "generationResponseMs": 965.4,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -616,7 +616,7 @@
     "reoptimized": null
   },
   {
-    "runId": "28fba877-dc13-446f-9efa-9c7b85102b07",
+    "runId": "c8be47a8-a227-4c87-9edc-08e69c6b82a8",
     "scenarioId": "P2-rain-heavy-adaptive",
     "personaId": "P2",
     "weather": "rain",
@@ -629,7 +629,7 @@
     "interestRecall": 0.5,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1785.4,
+    "generationResponseMs": 1058.2,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -638,7 +638,7 @@
     "reoptimized": null
   },
   {
-    "runId": "c41b98b3-8717-45bf-a622-6befe8e7bda8",
+    "runId": "38b65828-95d6-448e-8c88-b6243505dba8",
     "scenarioId": "P2-rain-heavy-static",
     "personaId": "P2",
     "weather": "rain",
@@ -651,7 +651,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1863.8,
+    "generationResponseMs": 1009,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -660,7 +660,7 @@
     "reoptimized": null
   },
   {
-    "runId": "90945907-3250-4158-a715-fa9fd0932f54",
+    "runId": "b0c44c7b-2cb0-4c02-a219-26c5e0d5cb01",
     "scenarioId": "P2-rain-blocked-adaptive",
     "personaId": "P2",
     "weather": "rain",
@@ -673,7 +673,7 @@
     "interestRecall": 0.5,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 2019.4,
+    "generationResponseMs": 1034.2,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -682,7 +682,7 @@
     "reoptimized": null
   },
   {
-    "runId": "0f6892d6-2cd7-4756-8a1e-c0f6104b1cdc",
+    "runId": "0b97c766-60d2-409a-b108-654089d6bb7d",
     "scenarioId": "P2-rain-blocked-static",
     "personaId": "P2",
     "weather": "rain",
@@ -695,7 +695,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1617,
+    "generationResponseMs": 938.4,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -704,7 +704,7 @@
     "reoptimized": null
   },
   {
-    "runId": "40efcc57-8099-4841-8f73-0af0dbab0c89",
+    "runId": "9581cb00-8031-40f9-b2f6-9fc39c7010bc",
     "scenarioId": "P3-clear-none-adaptive",
     "personaId": "P3",
     "weather": "clear",
@@ -717,7 +717,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1067.2,
+    "generationResponseMs": 1004.6,
     "stopCount": 4,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -726,7 +726,7 @@
     "reoptimized": null
   },
   {
-    "runId": "9c3af74a-c38a-40a6-a8c6-620fdefba814",
+    "runId": "01f41a59-d309-4dbb-a221-c7fbc9bc03eb",
     "scenarioId": "P3-clear-none-static",
     "personaId": "P3",
     "weather": "clear",
@@ -739,7 +739,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1024,
+    "generationResponseMs": 976.2,
     "stopCount": 4,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -748,7 +748,7 @@
     "reoptimized": null
   },
   {
-    "runId": "eeda6ea7-bb9f-4d0f-a098-cefcd7c33582",
+    "runId": "04dfa8ea-af9c-4ca7-b147-bc2afc8770e6",
     "scenarioId": "P3-clear-moderate-adaptive",
     "personaId": "P3",
     "weather": "clear",
@@ -761,16 +761,16 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1034.6,
+    "generationResponseMs": 1074.6,
     "stopCount": 4,
     "disruptionEffect": "delayed_but_feasible",
     "postAdaptFeasible": true,
     "planChange": 0,
-    "reoptResponseMs": 562,
+    "reoptResponseMs": 57,
     "reoptimized": false
   },
   {
-    "runId": "1f427158-db56-4da8-9243-4d5365dac7fa",
+    "runId": "07f90c01-37fc-47a8-899a-cd023378c56d",
     "scenarioId": "P3-clear-moderate-static",
     "personaId": "P3",
     "weather": "clear",
@@ -783,7 +783,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1039.6,
+    "generationResponseMs": 970.6,
     "stopCount": 4,
     "disruptionEffect": "delayed_feasible",
     "postAdaptFeasible": true,
@@ -792,7 +792,7 @@
     "reoptimized": false
   },
   {
-    "runId": "37f42275-46f4-47e1-8780-81006bd004c4",
+    "runId": "be0478a5-1147-48b1-9869-d34f19441776",
     "scenarioId": "P3-clear-heavy-adaptive",
     "personaId": "P3",
     "weather": "clear",
@@ -805,16 +805,16 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1126,
+    "generationResponseMs": 1019.4,
     "stopCount": 4,
     "disruptionEffect": "heavy_delay_feasible",
     "postAdaptFeasible": true,
     "planChange": 0,
-    "reoptResponseMs": 17,
+    "reoptResponseMs": 10,
     "reoptimized": false
   },
   {
-    "runId": "e98f7174-4dce-4560-9dd0-104ee6357954",
+    "runId": "f309f7f2-a689-40a3-a732-d1fefe5594f1",
     "scenarioId": "P3-clear-heavy-static",
     "personaId": "P3",
     "weather": "clear",
@@ -827,7 +827,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1030.4,
+    "generationResponseMs": 947.6,
     "stopCount": 4,
     "disruptionEffect": "delayed_feasible",
     "postAdaptFeasible": true,
@@ -836,7 +836,7 @@
     "reoptimized": false
   },
   {
-    "runId": "21a3645c-955d-4e15-b80e-82dd240af69f",
+    "runId": "8a6ebea6-1a74-47e0-ab2d-2765ea08444b",
     "scenarioId": "P3-clear-blocked-adaptive",
     "personaId": "P3",
     "weather": "clear",
@@ -849,16 +849,16 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1018.8,
+    "generationResponseMs": 977.6,
     "stopCount": 4,
     "disruptionEffect": "blocked_reoptimized",
     "postAdaptFeasible": true,
     "planChange": 0.5,
-    "reoptResponseMs": 210,
+    "reoptResponseMs": 216,
     "reoptimized": true
   },
   {
-    "runId": "199d7c2a-4a06-4b7d-b996-73d169cf459c",
+    "runId": "6ba6e717-a127-4b00-999f-d3dee3b10641",
     "scenarioId": "P3-clear-blocked-static",
     "personaId": "P3",
     "weather": "clear",
@@ -871,7 +871,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1007.4,
+    "generationResponseMs": 967.6,
     "stopCount": 4,
     "disruptionEffect": "blocked_infeasible",
     "postAdaptFeasible": false,
@@ -880,7 +880,7 @@
     "reoptimized": false
   },
   {
-    "runId": "3946a5ac-2701-4075-8ad8-5f60e6be2c1a",
+    "runId": "9d1f5d32-d44a-4738-9755-3536ef3462ae",
     "scenarioId": "P3-rain-none-adaptive",
     "personaId": "P3",
     "weather": "rain",
@@ -893,7 +893,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1014.8,
+    "generationResponseMs": 965,
     "stopCount": 4,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -902,7 +902,7 @@
     "reoptimized": null
   },
   {
-    "runId": "549e248b-7183-41ae-81df-1e24e8ec8f22",
+    "runId": "09ace87b-918e-4813-9186-5c44a04ea653",
     "scenarioId": "P3-rain-none-static",
     "personaId": "P3",
     "weather": "rain",
@@ -915,7 +915,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1009.6,
+    "generationResponseMs": 972.6,
     "stopCount": 4,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -924,7 +924,7 @@
     "reoptimized": null
   },
   {
-    "runId": "8903078e-d3d4-4e65-9f9f-b9ab5c09a11f",
+    "runId": "5ec12657-25ad-4969-9556-326a7de3d2e8",
     "scenarioId": "P3-rain-moderate-adaptive",
     "personaId": "P3",
     "weather": "rain",
@@ -937,7 +937,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1199,
+    "generationResponseMs": 1205.8,
     "stopCount": 4,
     "disruptionEffect": "delayed_but_feasible",
     "postAdaptFeasible": true,
@@ -946,7 +946,7 @@
     "reoptimized": false
   },
   {
-    "runId": "d0c8c019-3da0-4f83-81e5-59302cbeaf99",
+    "runId": "09836279-b4b3-4455-bfa3-3472bb28ce40",
     "scenarioId": "P3-rain-moderate-static",
     "personaId": "P3",
     "weather": "rain",
@@ -959,7 +959,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1837.4,
+    "generationResponseMs": 971.2,
     "stopCount": 4,
     "disruptionEffect": "delayed_feasible",
     "postAdaptFeasible": true,
@@ -968,7 +968,7 @@
     "reoptimized": false
   },
   {
-    "runId": "8984d851-dc0c-4a96-96eb-44261d58cb2c",
+    "runId": "59c1b017-328f-4005-86b5-9690b0a012e6",
     "scenarioId": "P3-rain-heavy-adaptive",
     "personaId": "P3",
     "weather": "rain",
@@ -981,16 +981,16 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 2071.6,
+    "generationResponseMs": 947.4,
     "stopCount": 4,
     "disruptionEffect": "heavy_delay_feasible",
     "postAdaptFeasible": true,
     "planChange": 0,
-    "reoptResponseMs": 35,
+    "reoptResponseMs": 14,
     "reoptimized": false
   },
   {
-    "runId": "e72d4dfb-f6f8-42cf-962c-0b1b3f933a5d",
+    "runId": "18c6c958-ae5e-4ac9-bd4b-b2b9226f044e",
     "scenarioId": "P3-rain-heavy-static",
     "personaId": "P3",
     "weather": "rain",
@@ -1003,7 +1003,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 2065.2,
+    "generationResponseMs": 951,
     "stopCount": 4,
     "disruptionEffect": "delayed_feasible",
     "postAdaptFeasible": true,
@@ -1012,7 +1012,7 @@
     "reoptimized": false
   },
   {
-    "runId": "abce7115-ec8f-40c6-a046-7f871914553e",
+    "runId": "4303fafb-3d8e-4464-a44c-fd096fe109e7",
     "scenarioId": "P3-rain-blocked-adaptive",
     "personaId": "P3",
     "weather": "rain",
@@ -1025,16 +1025,16 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1852,
+    "generationResponseMs": 950,
     "stopCount": 4,
     "disruptionEffect": "blocked_reoptimized",
     "postAdaptFeasible": true,
     "planChange": 0.5,
-    "reoptResponseMs": 231,
+    "reoptResponseMs": 213,
     "reoptimized": true
   },
   {
-    "runId": "b0b67ea2-530e-4d9b-84d1-b1e8441f107c",
+    "runId": "b9e953f5-c8b2-4887-9eb1-714deed3f5e5",
     "scenarioId": "P3-rain-blocked-static",
     "personaId": "P3",
     "weather": "rain",
@@ -1047,7 +1047,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1900.8,
+    "generationResponseMs": 969.4,
     "stopCount": 4,
     "disruptionEffect": "blocked_infeasible",
     "postAdaptFeasible": false,
@@ -1056,7 +1056,7 @@
     "reoptimized": false
   },
   {
-    "runId": "0d4aa591-0f00-49f7-aecb-bda4eae6684f",
+    "runId": "7e76b137-dc43-4cb9-81d7-6e3a91b09888",
     "scenarioId": "P4-clear-none-adaptive",
     "personaId": "P4",
     "weather": "clear",
@@ -1069,7 +1069,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1990.8,
+    "generationResponseMs": 1464.4,
     "stopCount": 7,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1078,7 +1078,7 @@
     "reoptimized": null
   },
   {
-    "runId": "f9fcf8d2-f0e4-4744-9403-972ff206e20e",
+    "runId": "bc7ec8d2-5754-4fe1-9540-5a679fda7742",
     "scenarioId": "P4-clear-none-static",
     "personaId": "P4",
     "weather": "clear",
@@ -1091,7 +1091,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1606.2,
+    "generationResponseMs": 1449.4,
     "stopCount": 7,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1100,7 +1100,7 @@
     "reoptimized": null
   },
   {
-    "runId": "bd87ad91-2ec1-4fd1-b2ce-3cc2f4ad85d6",
+    "runId": "b2852036-69af-470a-b08a-65434e5d7204",
     "scenarioId": "P4-clear-moderate-adaptive",
     "personaId": "P4",
     "weather": "clear",
@@ -1113,16 +1113,16 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1605,
+    "generationResponseMs": 1451,
     "stopCount": 7,
     "disruptionEffect": "delayed_infeasible",
     "postAdaptFeasible": false,
     "planChange": 0,
-    "reoptResponseMs": 12,
+    "reoptResponseMs": 10,
     "reoptimized": false
   },
   {
-    "runId": "0a9a9538-bcea-4319-8a6d-52547e3c093a",
+    "runId": "1939de5d-9d9f-47bd-a103-f88ab791322f",
     "scenarioId": "P4-clear-moderate-static",
     "personaId": "P4",
     "weather": "clear",
@@ -1135,7 +1135,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1682.4,
+    "generationResponseMs": 1432.2,
     "stopCount": 7,
     "disruptionEffect": "delayed_infeasible",
     "postAdaptFeasible": false,
@@ -1144,7 +1144,7 @@
     "reoptimized": false
   },
   {
-    "runId": "1c76b9f4-9348-4a5e-ae6a-73408e952823",
+    "runId": "e38e1f22-ccde-4c83-8ea5-471c55d4a25c",
     "scenarioId": "P4-clear-heavy-adaptive",
     "personaId": "P4",
     "weather": "clear",
@@ -1157,16 +1157,16 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1697,
+    "generationResponseMs": 1468.8,
     "stopCount": 7,
     "disruptionEffect": "heavy_delay_feasible",
     "postAdaptFeasible": true,
     "planChange": 0.8571428571428571,
-    "reoptResponseMs": 504,
+    "reoptResponseMs": 671,
     "reoptimized": true
   },
   {
-    "runId": "df155520-ded7-4b91-9a0c-b5e1e2d57eaa",
+    "runId": "405d7b87-8af8-4b1d-8361-bc459b1516ff",
     "scenarioId": "P4-clear-heavy-static",
     "personaId": "P4",
     "weather": "clear",
@@ -1179,7 +1179,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1616.8,
+    "generationResponseMs": 1440.2,
     "stopCount": 7,
     "disruptionEffect": "delayed_infeasible",
     "postAdaptFeasible": false,
@@ -1188,7 +1188,7 @@
     "reoptimized": false
   },
   {
-    "runId": "97f6f463-88a5-4e27-ac21-33b0a7011007",
+    "runId": "b998e1e7-0d80-4e25-b4fd-3f1e877f13f3",
     "scenarioId": "P4-clear-blocked-adaptive",
     "personaId": "P4",
     "weather": "clear",
@@ -1201,16 +1201,16 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1702.2,
+    "generationResponseMs": 1416.8,
     "stopCount": 7,
     "disruptionEffect": "blocked_reoptimized",
     "postAdaptFeasible": true,
     "planChange": 0.8571428571428571,
-    "reoptResponseMs": 496,
+    "reoptResponseMs": 495,
     "reoptimized": true
   },
   {
-    "runId": "8272c91c-e79f-4c3e-a74a-f7339a6b3a35",
+    "runId": "8e1fe838-eb62-4115-9643-cc147aa0d629",
     "scenarioId": "P4-clear-blocked-static",
     "personaId": "P4",
     "weather": "clear",
@@ -1223,7 +1223,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1626.2,
+    "generationResponseMs": 1442,
     "stopCount": 7,
     "disruptionEffect": "blocked_infeasible",
     "postAdaptFeasible": false,
@@ -1232,7 +1232,7 @@
     "reoptimized": false
   },
   {
-    "runId": "a09371ee-d652-4ffa-a2fe-327ffd063d79",
+    "runId": "a3b9c7eb-4f00-4457-9e1f-36aa663a2dcd",
     "scenarioId": "P4-rain-none-adaptive",
     "personaId": "P4",
     "weather": "rain",
@@ -1245,7 +1245,7 @@
     "interestRecall": 0.75,
     "groupCoverage": 0.75,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1692.8,
+    "generationResponseMs": 2346.6,
     "stopCount": 5,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1254,7 +1254,7 @@
     "reoptimized": null
   },
   {
-    "runId": "0de57029-7bea-4a01-9347-4f723561fd88",
+    "runId": "279a024b-3122-41ac-9cce-b0d16e65f757",
     "scenarioId": "P4-rain-none-static",
     "personaId": "P4",
     "weather": "rain",
@@ -1267,7 +1267,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1599.4,
+    "generationResponseMs": 4494.8,
     "stopCount": 7,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1276,7 +1276,7 @@
     "reoptimized": null
   },
   {
-    "runId": "2ca968ab-07da-4bf2-96aa-d47cb6ef938e",
+    "runId": "77b7af59-35cd-405a-a3b7-3601c02fe943",
     "scenarioId": "P4-rain-moderate-adaptive",
     "personaId": "P4",
     "weather": "rain",
@@ -1289,16 +1289,16 @@
     "interestRecall": 0.75,
     "groupCoverage": 0.75,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1632.4,
+    "generationResponseMs": 2662.8,
     "stopCount": 5,
     "disruptionEffect": "delayed_but_feasible",
     "postAdaptFeasible": true,
     "planChange": 0,
-    "reoptResponseMs": 11,
+    "reoptResponseMs": 29,
     "reoptimized": false
   },
   {
-    "runId": "f2df6c51-92a7-4681-abab-1ff3b07ceeda",
+    "runId": "5500d151-fd0c-477c-9a0e-1af796778af8",
     "scenarioId": "P4-rain-moderate-static",
     "personaId": "P4",
     "weather": "rain",
@@ -1311,7 +1311,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1582.2,
+    "generationResponseMs": 2564.8,
     "stopCount": 7,
     "disruptionEffect": "delayed_infeasible",
     "postAdaptFeasible": false,
@@ -1320,7 +1320,7 @@
     "reoptimized": false
   },
   {
-    "runId": "f54b5f0d-9854-434b-b2ca-1aba4bcf3eb1",
+    "runId": "d6e24e99-9d36-4da2-bac7-c4655dd05da6",
     "scenarioId": "P4-rain-heavy-adaptive",
     "personaId": "P4",
     "weather": "rain",
@@ -1333,16 +1333,16 @@
     "interestRecall": 0.75,
     "groupCoverage": 0.75,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1620.8,
+    "generationResponseMs": 2808.6,
     "stopCount": 5,
     "disruptionEffect": "heavy_delay_feasible",
     "postAdaptFeasible": true,
     "planChange": 0,
-    "reoptResponseMs": 17,
+    "reoptResponseMs": 20,
     "reoptimized": false
   },
   {
-    "runId": "022a8add-37d2-43dd-a56e-164b91f8bbdb",
+    "runId": "2b9a1329-6b85-496d-9e9a-c055a7211f2f",
     "scenarioId": "P4-rain-heavy-static",
     "personaId": "P4",
     "weather": "rain",
@@ -1355,7 +1355,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1595,
+    "generationResponseMs": 2587.2,
     "stopCount": 7,
     "disruptionEffect": "delayed_infeasible",
     "postAdaptFeasible": false,
@@ -1364,7 +1364,7 @@
     "reoptimized": false
   },
   {
-    "runId": "015b96a7-a0ce-481f-b34a-a197d3d4f1b1",
+    "runId": "1d31cc44-4fce-4d56-b72b-bcb5f4ebc776",
     "scenarioId": "P4-rain-blocked-adaptive",
     "personaId": "P4",
     "weather": "rain",
@@ -1377,16 +1377,16 @@
     "interestRecall": 0.75,
     "groupCoverage": 0.75,
     "outdoorStopCount": 1,
-    "generationResponseMs": 1636.4,
+    "generationResponseMs": 2863.2,
     "stopCount": 5,
     "disruptionEffect": "blocked_reoptimized",
     "postAdaptFeasible": true,
     "planChange": 0.4,
-    "reoptResponseMs": 301,
+    "reoptResponseMs": 340,
     "reoptimized": true
   },
   {
-    "runId": "61132fbb-59e2-42e7-8aa0-f9e57ad1b544",
+    "runId": "02a1f6ce-8bb0-46a9-ad46-4c4725a96e04",
     "scenarioId": "P4-rain-blocked-static",
     "personaId": "P4",
     "weather": "rain",
@@ -1399,7 +1399,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 4,
-    "generationResponseMs": 1626.4,
+    "generationResponseMs": 2561.2,
     "stopCount": 7,
     "disruptionEffect": "blocked_infeasible",
     "postAdaptFeasible": false,
@@ -1408,7 +1408,7 @@
     "reoptimized": false
   },
   {
-    "runId": "a61ef7a8-b8a0-457c-98ce-3d22d8c44d97",
+    "runId": "84100b43-6624-48d7-be12-82d9a027ff9a",
     "scenarioId": "P5-clear-none-adaptive",
     "personaId": "P5",
     "weather": "clear",
@@ -1421,7 +1421,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 917.4,
+    "generationResponseMs": 1492,
     "stopCount": 3,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1430,7 +1430,7 @@
     "reoptimized": null
   },
   {
-    "runId": "b035b806-a1ff-407c-ae12-f3fc15dd1636",
+    "runId": "6595c185-2c69-462f-aca8-4a2b28ae5490",
     "scenarioId": "P5-clear-none-static",
     "personaId": "P5",
     "weather": "clear",
@@ -1443,7 +1443,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 923.4,
+    "generationResponseMs": 1462.6,
     "stopCount": 3,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1452,7 +1452,7 @@
     "reoptimized": null
   },
   {
-    "runId": "74c21cd7-eaaf-4c4f-95a7-53f2ad6ce437",
+    "runId": "4cfe2cf5-0aae-429a-8e2e-b93943352bea",
     "scenarioId": "P5-clear-moderate-adaptive",
     "personaId": "P5",
     "weather": "clear",
@@ -1465,7 +1465,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 928.2,
+    "generationResponseMs": 1436.4,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1474,7 +1474,7 @@
     "reoptimized": null
   },
   {
-    "runId": "a55c695d-65a2-465d-bc04-d52589688773",
+    "runId": "142bcbf6-b46e-41f5-8ade-f551ab76bece",
     "scenarioId": "P5-clear-moderate-static",
     "personaId": "P5",
     "weather": "clear",
@@ -1487,7 +1487,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 935.4,
+    "generationResponseMs": 960.4,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1496,7 +1496,7 @@
     "reoptimized": null
   },
   {
-    "runId": "4bb8646d-09d1-45c5-b785-65e49b23e7a5",
+    "runId": "c950fa1d-1cd3-40b1-870f-136ea73ceb6f",
     "scenarioId": "P5-clear-heavy-adaptive",
     "personaId": "P5",
     "weather": "clear",
@@ -1509,7 +1509,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 906.4,
+    "generationResponseMs": 874.6,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1518,7 +1518,7 @@
     "reoptimized": null
   },
   {
-    "runId": "93c6a84a-33e3-4036-ba38-48d83b81414e",
+    "runId": "9e515ba3-aa88-45f0-8a07-be2b40d52ec7",
     "scenarioId": "P5-clear-heavy-static",
     "personaId": "P5",
     "weather": "clear",
@@ -1531,7 +1531,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 930.6,
+    "generationResponseMs": 892.8,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1540,7 +1540,7 @@
     "reoptimized": null
   },
   {
-    "runId": "9ea24d27-73d3-4c91-bc9b-c0a5e6618f1d",
+    "runId": "f9d5852e-98ce-4e39-a938-3b40f9a7fe95",
     "scenarioId": "P5-clear-blocked-adaptive",
     "personaId": "P5",
     "weather": "clear",
@@ -1553,7 +1553,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 921.4,
+    "generationResponseMs": 863.8,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1562,7 +1562,7 @@
     "reoptimized": null
   },
   {
-    "runId": "c765c42b-c7ba-4339-9c7b-e3410dcee40e",
+    "runId": "2f6487f8-db6b-4554-8a0b-3c3afed21a7f",
     "scenarioId": "P5-clear-blocked-static",
     "personaId": "P5",
     "weather": "clear",
@@ -1575,7 +1575,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 931.6,
+    "generationResponseMs": 856.4,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1584,7 +1584,7 @@
     "reoptimized": null
   },
   {
-    "runId": "eb165238-93cc-4a4e-8e48-0294f42dc9f5",
+    "runId": "f1e22287-ae66-48b2-b3aa-424559bede64",
     "scenarioId": "P5-rain-none-adaptive",
     "personaId": "P5",
     "weather": "rain",
@@ -1597,7 +1597,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 970.4,
+    "generationResponseMs": 890.6,
     "stopCount": 2,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1606,7 +1606,7 @@
     "reoptimized": null
   },
   {
-    "runId": "167cbcc2-1a73-44b1-8f54-95e8df9d6978",
+    "runId": "f42f301c-a8a1-4961-9707-a76f6f9f813c",
     "scenarioId": "P5-rain-none-static",
     "personaId": "P5",
     "weather": "rain",
@@ -1619,7 +1619,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 974.2,
+    "generationResponseMs": 847.6,
     "stopCount": 3,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1628,7 +1628,7 @@
     "reoptimized": null
   },
   {
-    "runId": "a0889ba1-9239-4c40-91b7-1f6500d5735f",
+    "runId": "d9a20c69-d473-4bc3-a9db-86b800430c0b",
     "scenarioId": "P5-rain-moderate-adaptive",
     "personaId": "P5",
     "weather": "rain",
@@ -1641,7 +1641,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 973.4,
+    "generationResponseMs": 888.6,
     "stopCount": 2,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1650,7 +1650,7 @@
     "reoptimized": null
   },
   {
-    "runId": "6835d5c5-e616-4148-951c-ef6d6bf0d24d",
+    "runId": "84c1d595-4a85-4b4a-9c78-e8ce54dd226f",
     "scenarioId": "P5-rain-moderate-static",
     "personaId": "P5",
     "weather": "rain",
@@ -1663,7 +1663,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 919.4,
+    "generationResponseMs": 892.2,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1672,7 +1672,7 @@
     "reoptimized": null
   },
   {
-    "runId": "ab1df9d8-aa15-43fa-a43b-4efe8735f1a6",
+    "runId": "98a39183-dd69-4fc1-b3b8-8cfd50e929de",
     "scenarioId": "P5-rain-heavy-adaptive",
     "personaId": "P5",
     "weather": "rain",
@@ -1685,7 +1685,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 927.2,
+    "generationResponseMs": 896.8,
     "stopCount": 2,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1694,7 +1694,7 @@
     "reoptimized": null
   },
   {
-    "runId": "e64f2849-c111-4f0e-bfb3-cb872fbfc3f8",
+    "runId": "35d7b34c-f625-436a-ace2-369228b273ec",
     "scenarioId": "P5-rain-heavy-static",
     "personaId": "P5",
     "weather": "rain",
@@ -1707,7 +1707,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 948.8,
+    "generationResponseMs": 889,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1716,7 +1716,7 @@
     "reoptimized": null
   },
   {
-    "runId": "64b63c9f-9dfe-4ba5-8f40-d52023249547",
+    "runId": "bc4418cc-c03a-4b7c-8da0-6b97392e9a13",
     "scenarioId": "P5-rain-blocked-adaptive",
     "personaId": "P5",
     "weather": "rain",
@@ -1729,7 +1729,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 917.2,
+    "generationResponseMs": 915.4,
     "stopCount": 2,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1738,7 +1738,7 @@
     "reoptimized": null
   },
   {
-    "runId": "06b5ae47-4659-4967-af69-f370d7cbf8e8",
+    "runId": "d293aaf1-84f8-4c3e-b524-0e0cfe55373d",
     "scenarioId": "P5-rain-blocked-static",
     "personaId": "P5",
     "weather": "rain",
@@ -1751,7 +1751,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 1,
-    "generationResponseMs": 966.2,
+    "generationResponseMs": 930.2,
     "stopCount": 3,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1760,7 +1760,7 @@
     "reoptimized": null
   },
   {
-    "runId": "332e5d0f-1824-44bc-976f-9fe50799553a",
+    "runId": "ba5629a2-fcc9-4123-bafc-2e50ae1f1612",
     "scenarioId": "P6-clear-none-adaptive",
     "personaId": "P6",
     "weather": "clear",
@@ -1773,7 +1773,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1272.8,
+    "generationResponseMs": 1219,
     "stopCount": 6,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1782,7 +1782,7 @@
     "reoptimized": null
   },
   {
-    "runId": "3faa802d-6196-43e3-9b3d-b66663a84626",
+    "runId": "14b84467-7854-40e6-989c-2541f02f2db8",
     "scenarioId": "P6-clear-none-static",
     "personaId": "P6",
     "weather": "clear",
@@ -1795,7 +1795,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1255.2,
+    "generationResponseMs": 1187.2,
     "stopCount": 6,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1804,7 +1804,7 @@
     "reoptimized": null
   },
   {
-    "runId": "d3a2c1d4-c229-4535-b356-fadb54a668f3",
+    "runId": "2cc66433-fbab-4b9b-be4d-eb01e0f0e104",
     "scenarioId": "P6-clear-moderate-adaptive",
     "personaId": "P6",
     "weather": "clear",
@@ -1817,7 +1817,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1327.6,
+    "generationResponseMs": 1216,
     "stopCount": 6,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1826,7 +1826,7 @@
     "reoptimized": null
   },
   {
-    "runId": "6b08a2bb-c40b-4c3a-8b31-b5b00c624ebc",
+    "runId": "f9cb2eef-7c37-4416-96d6-8a280fadbf70",
     "scenarioId": "P6-clear-moderate-static",
     "personaId": "P6",
     "weather": "clear",
@@ -1839,7 +1839,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1265.2,
+    "generationResponseMs": 1198.8,
     "stopCount": 6,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1848,7 +1848,7 @@
     "reoptimized": null
   },
   {
-    "runId": "6b21a970-3779-4426-a542-009c40fa069c",
+    "runId": "51a14f37-3a6d-4762-99b2-f4b7c367a748",
     "scenarioId": "P6-clear-heavy-adaptive",
     "personaId": "P6",
     "weather": "clear",
@@ -1861,7 +1861,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1284.6,
+    "generationResponseMs": 1216.4,
     "stopCount": 6,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1870,7 +1870,7 @@
     "reoptimized": null
   },
   {
-    "runId": "1a6b929a-9f3c-4949-855c-34b691ed8857",
+    "runId": "81e1f99e-347e-4245-8756-a9815baa355b",
     "scenarioId": "P6-clear-heavy-static",
     "personaId": "P6",
     "weather": "clear",
@@ -1883,7 +1883,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1249,
+    "generationResponseMs": 1167.6,
     "stopCount": 6,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1892,7 +1892,7 @@
     "reoptimized": null
   },
   {
-    "runId": "07b5d8a7-aa51-4f96-aa2c-0b8655f5a6d2",
+    "runId": "2864b5b4-f370-4bc8-80c2-73c677c0e549",
     "scenarioId": "P6-clear-blocked-adaptive",
     "personaId": "P6",
     "weather": "clear",
@@ -1905,7 +1905,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1253.8,
+    "generationResponseMs": 1158.4,
     "stopCount": 6,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1914,7 +1914,7 @@
     "reoptimized": null
   },
   {
-    "runId": "bbcf1451-293e-4944-a13b-90a21694d9e1",
+    "runId": "b3e0b545-d8a0-47a0-9dac-148142289d87",
     "scenarioId": "P6-clear-blocked-static",
     "personaId": "P6",
     "weather": "clear",
@@ -1927,7 +1927,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1259.4,
+    "generationResponseMs": 1148.4,
     "stopCount": 6,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -1936,7 +1936,7 @@
     "reoptimized": null
   },
   {
-    "runId": "eb394139-7c46-4360-bbbf-edc8a4d63ac6",
+    "runId": "5a354e3d-d646-45cc-ae10-8f07d7ab8985",
     "scenarioId": "P6-rain-none-adaptive",
     "personaId": "P6",
     "weather": "rain",
@@ -1949,7 +1949,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1285.2,
+    "generationResponseMs": 1174.8,
     "stopCount": 4,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1958,7 +1958,7 @@
     "reoptimized": null
   },
   {
-    "runId": "13e6dd0e-6b90-44e3-886d-ef6af7b38b82",
+    "runId": "1acbf9f0-841b-492d-bc92-ceca07bba34f",
     "scenarioId": "P6-rain-none-static",
     "personaId": "P6",
     "weather": "rain",
@@ -1971,7 +1971,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1255,
+    "generationResponseMs": 1166.4,
     "stopCount": 6,
     "disruptionEffect": null,
     "postAdaptFeasible": null,
@@ -1980,7 +1980,7 @@
     "reoptimized": null
   },
   {
-    "runId": "19c60878-dcaa-41d2-be1c-8327469efea8",
+    "runId": "b20aedfb-79ce-4af3-800a-e6607cc5f995",
     "scenarioId": "P6-rain-moderate-adaptive",
     "personaId": "P6",
     "weather": "rain",
@@ -1993,7 +1993,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1288.8,
+    "generationResponseMs": 1232.4,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -2002,7 +2002,7 @@
     "reoptimized": null
   },
   {
-    "runId": "ab49c288-bf34-40be-985b-baf68aba3d56",
+    "runId": "4eb389be-deb8-4fc7-ba67-8be452e53807",
     "scenarioId": "P6-rain-moderate-static",
     "personaId": "P6",
     "weather": "rain",
@@ -2015,7 +2015,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1254.6,
+    "generationResponseMs": 1175.6,
     "stopCount": 6,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -2024,7 +2024,7 @@
     "reoptimized": null
   },
   {
-    "runId": "89c5b6bf-1e86-4554-8837-9b33db29e12d",
+    "runId": "207d0206-ed4d-4c96-9c3c-aedcb800a1b2",
     "scenarioId": "P6-rain-heavy-adaptive",
     "personaId": "P6",
     "weather": "rain",
@@ -2037,7 +2037,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1258.2,
+    "generationResponseMs": 1164.4,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -2046,7 +2046,7 @@
     "reoptimized": null
   },
   {
-    "runId": "fc706c8b-27d3-4f50-9780-60d18b68b114",
+    "runId": "e127364c-1d6d-4735-8d51-ea876a31d70b",
     "scenarioId": "P6-rain-heavy-static",
     "personaId": "P6",
     "weather": "rain",
@@ -2059,7 +2059,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1287,
+    "generationResponseMs": 1174.2,
     "stopCount": 6,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -2068,7 +2068,7 @@
     "reoptimized": null
   },
   {
-    "runId": "7b7b0467-204c-464e-adbf-3a44989de8d1",
+    "runId": "54983c53-25a5-41ba-b4b4-12f4821c774f",
     "scenarioId": "P6-rain-blocked-adaptive",
     "personaId": "P6",
     "weather": "rain",
@@ -2081,7 +2081,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 0,
-    "generationResponseMs": 1278.4,
+    "generationResponseMs": 1159.4,
     "stopCount": 4,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,
@@ -2090,7 +2090,7 @@
     "reoptimized": null
   },
   {
-    "runId": "c7ef87e2-178e-4fc2-b41d-47ec80a33019",
+    "runId": "ff6bbc5e-d7b9-4a1c-8380-75cc5ea36b86",
     "scenarioId": "P6-rain-blocked-static",
     "personaId": "P6",
     "weather": "rain",
@@ -2103,7 +2103,7 @@
     "interestRecall": 1,
     "groupCoverage": 1,
     "outdoorStopCount": 3,
-    "generationResponseMs": 1247.2,
+    "generationResponseMs": 1144.4,
     "stopCount": 6,
     "disruptionEffect": "no_effect",
     "postAdaptFeasible": null,

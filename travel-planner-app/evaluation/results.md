@@ -9,8 +9,8 @@
 | Generation feasibility rate | 100.0% | 100.0% |
 | Post-disruption feasible rate | 91.7% | 33.3% |
 | Mean total travel time | 29.6 min | 26.5 min |
-| Mean generation response time | 1702 ms | 1711 ms |
-| Mean re-optimisation response time | 202 ms | N/A |
+| Mean generation response time | 1294 ms | 1298 ms |
+| Mean re-optimisation response time | 175 ms | N/A |
 | Re-optimisation frequency (of disrupted driving scenarios) | 41.7% | N/A |
 | Mean plan-change ratio (all driving disruptions) | 0.260 | N/A |
 | Mean plan-change ratio (reoptimized runs only) | 0.623 | N/A |
