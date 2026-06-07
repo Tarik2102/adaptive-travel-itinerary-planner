@@ -32,6 +32,10 @@ import {
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+// Reproducibility seed for "random" recommender — change this single constant to
+// rerun the evaluation harness with different randomization.
+const EVAL_SEED = 42;
+
 const coordinateSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
@@ -64,6 +68,10 @@ const preferenceSchema = z
 
 const itineraryRequestSchema = z.object({
   preferences: preferenceSchema,
+  // Evaluation-harness control parameters (all optional; absent = current behaviour).
+  mode: z.enum(["adaptive", "static"]).optional(),
+  weatherOverride: z.enum(["clear", "rain"]).optional(),
+  recommender: z.enum(["content", "popularity", "random"]).optional(),
 });
 
 type AttractionRow = QueryResultRow & {
@@ -154,6 +162,9 @@ export async function POST(request: Request) {
   }
 
   const preferences: PlannerPreferences = parsedRequest.data.preferences;
+  const mode = parsedRequest.data.mode ?? "adaptive";
+  const weatherOverride = parsedRequest.data.weatherOverride;
+  const recommender = parsedRequest.data.recommender ?? "content";
   logItineraryRequest(preferences);
 
   try {
@@ -173,18 +184,48 @@ export async function POST(request: Request) {
         adaptation: createEmptyAdaptation({
           feasibilityStatus: "not_feasible",
         }),
+        mode,
+        recommender,
+        weatherUsed: null,
       });
     }
 
-    const { rankedAttractions, recommendationSource } =
-      await fetchRankedAttractionsWithFallback(preferences, resolvedAttractions);
-    const weather = await fetchWeatherForAdaptation();
-    const weatherAdaptation = applyWeatherAdaptation(
-      rankedAttractions,
-      resolvedAttractions,
-      weather,
-      preferences.maxAttractions
-    );
+    // Ranking: "content" uses the ML/fallback path unchanged; "popularity" and
+    // "random" are harness-only modes for controlled evaluation.
+    let rankedAttractions: RankedAttraction[];
+    let recommendationSource: "ml" | "fallback";
+
+    if (recommender === "popularity") {
+      rankedAttractions = rankAttractionsByPopularity(resolvedAttractions);
+      recommendationSource = "fallback";
+    } else if (recommender === "random") {
+      rankedAttractions = rankAttractionsRandomly(resolvedAttractions, EVAL_SEED);
+      recommendationSource = "fallback";
+    } else {
+      ({ rankedAttractions, recommendationSource } =
+        await fetchRankedAttractionsWithFallback(preferences, resolvedAttractions));
+    }
+
+    // Weather: static mode skips weather adaptation entirely so experiments are
+    // independent of outdoor-risk rescoring. weatherOverride fixes the value for
+    // adaptive-mode reproducibility.
+    const weather: WeatherInfo | null =
+      mode === "static"
+        ? null
+        : weatherOverride
+          ? createOverrideWeather(weatherOverride)
+          : await fetchWeatherForAdaptation();
+
+    const weatherAdaptation =
+      mode === "static"
+        ? { rankedAttractions, adaptation: createEmptyAdaptation() }
+        : applyWeatherAdaptation(
+            rankedAttractions,
+            resolvedAttractions,
+            weather,
+            preferences.maxAttractions
+          );
+
     const candidates = createItineraryCandidates(
       resolvedAttractions,
       weatherAdaptation.rankedAttractions
@@ -221,6 +262,9 @@ export async function POST(request: Request) {
       itinerary: routedItinerary,
       adaptation,
       recommendationSource,
+      mode,
+      recommender,
+      weatherUsed: weather,
     });
   } catch (error) {
     console.error("Itinerary generation error:", error);
@@ -233,6 +277,54 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+// ── Evaluation-harness ranking helpers ─────────────────────────────────────────
+
+function rankAttractionsByPopularity(attractions: Attraction[]): RankedAttraction[] {
+  return [...attractions]
+    .sort((a, b) => {
+      const popDiff = (b.popularity_score ?? 0) - (a.popularity_score ?? 0);
+      if (popDiff !== 0) return popDiff;
+      return (b.data_quality_score ?? 0) - (a.data_quality_score ?? 0);
+    })
+    .map((attraction, index): RankedAttraction => ({
+      id: attraction.id,
+      score: clamp(1 - index / Math.max(attractions.length, 1), 0, 1),
+      reason: "Ranked by popularity",
+    }));
+}
+
+// Deterministic PRNG (mulberry32) — no external dependency needed.
+function mulberry32(seed: number): () => number {
+  let s = seed;
+  return (): number => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function rankAttractionsRandomly(attractions: Attraction[], seed: number): RankedAttraction[] {
+  const rand = mulberry32(seed);
+  const shuffled = attractions
+    .map((attraction) => ({ attraction, key: rand() }))
+    .sort((a, b) => a.key - b.key)
+    .map(({ attraction }) => attraction);
+
+  return shuffled.map((attraction, index): RankedAttraction => ({
+    id: attraction.id,
+    score: clamp(1 - index / Math.max(shuffled.length, 1), 0, 1),
+    reason: "Random selection (deterministic seed)",
+  }));
+}
+
+function createOverrideWeather(weatherOverride: "clear" | "rain"): WeatherInfo {
+  if (weatherOverride === "rain") {
+    return { temperature: 15, condition: "rain", description: "simulated rain", isOutdoorRisk: true };
+  }
+  return { temperature: 20, condition: "clear", description: "simulated clear sky", isOutdoorRisk: false };
 }
 
 async function fetchAttractions(): Promise<Attraction[]> {
