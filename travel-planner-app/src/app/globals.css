@@ -2969,3 +2969,79 @@ section[id] {
     animation: none !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════
+   TIME PICKER
+═══════════════════════════════════════════════════════ */
+
+.time-picker {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+  overflow: hidden;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.time-picker:focus-within {
+  border-color: var(--primary);
+}
+
+/* Override the generic .field select rules for selects nested inside the picker */
+.time-picker .time-picker-select {
+  flex: 1;
+  width: auto;
+  min-height: 42px;
+  border: none;
+  border-radius: 0;
+  padding: 0 8px;
+  color: var(--foreground);
+  background: transparent;
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: center;
+  cursor: pointer;
+  transition: none;
+}
+
+.time-picker .time-picker-select:focus {
+  outline: none;
+  border-color: transparent;
+}
+
+.time-picker-sep {
+  flex: 0 0 auto;
+  padding: 0 2px;
+  color: var(--foreground);
+  font-weight: 800;
+  font-size: 1rem;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════════════════════
+   ITINERARY CARD — CLICKABLE
+═══════════════════════════════════════════════════════ */
+
+.itinerary-card-clickable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.itinerary-card-clickable:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.itinerary-card-clickable:focus-visible {
+  outline: 3px solid rgba(15, 103, 177, 0.28);
+  outline-offset: 2px;
+}
