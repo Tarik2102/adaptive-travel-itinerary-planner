@@ -3,25 +3,36 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-  "dev": "next dev --webpack",
-  "build": "next build",
-  "start": "next start",
-  "lint": "eslint"
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "import:pois": "tsx scripts/import-sarajevo-pois.ts",
+    "clean:pois": "tsx scripts/clean-sarajevo-pois.ts",
+    "sync:manual-coordinates": "tsx scripts/sync-manual-attraction-coordinates.ts",
+    "enrich": "tsx scripts/enrich-attraction-images.ts",
+    "dedupe": "tsx scripts/dedupe-attractions.ts",
+    "dedupe:apply": "tsx scripts/dedupe-attractions.ts --apply"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
+    "leaflet": "^1.9.4",
     "next": "16.2.6",
     "pg": "^8.21.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-leaflet": "^5.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }

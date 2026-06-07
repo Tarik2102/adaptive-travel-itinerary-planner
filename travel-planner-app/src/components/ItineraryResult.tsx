@@ -1,4 +1,6 @@
+import Image from "next/image";
 import { Badge } from "@/components/Badge";
+import { ItineraryMap } from "@/components/ItineraryMap";
 import { SectionHeader } from "@/components/SectionHeader";
 import type { GeneratedItinerary, ItineraryAdaptation } from "@/types/itinerary";
 
@@ -6,6 +8,29 @@ type ItineraryResultProps = {
   adaptation: ItineraryAdaptation | null;
   itinerary: GeneratedItinerary | null;
 };
+
+function buildMapKey(itinerary: GeneratedItinerary): string {
+  const stopIds = itinerary.items.map((item) => item.attraction.id).join("-");
+  const geoCount = itinerary.routeGeometry?.coordinates.length ?? 0;
+  return `${stopIds}:${geoCount}`;
+}
+
+function getItineraryPlaceholderClass(category: string): string {
+  const cat = category.toLowerCase();
+  if (cat.includes("museum")) return "placeholder-museum";
+  if (cat.includes("food") || cat.includes("cafe") || cat.includes("restaurant")) return "placeholder-food";
+  if (cat.includes("nature") || cat.includes("park") || cat.includes("viewpoint")) return "placeholder-nature";
+  if (cat.includes("religion") || cat.includes("mosque") || cat.includes("church")) return "placeholder-religion";
+  if (cat.includes("history") || cat.includes("culture") || cat.includes("heritage") || cat.includes("architecture")) return "placeholder-heritage";
+  if (cat.includes("sport")) return "placeholder-sport";
+  if (cat.includes("shopping")) return "placeholder-shopping";
+  if (cat.includes("entertainment")) return "placeholder-entertainment";
+  return "placeholder-default";
+}
+
+function isWikimediaUrl(url: string): boolean {
+  return url.startsWith("https://upload.wikimedia.org/");
+}
 
 function toTitleCase(value: string) {
   return value
@@ -72,6 +97,20 @@ function getAdaptationStatusTone(
 }
 
 function getAdaptationTitle(adaptation: ItineraryAdaptation) {
+  const trafficSim = adaptation.trafficSimulation;
+
+  if (trafficSim?.status === "blocked_reoptimized") {
+    return "Route blocked — itinerary automatically updated";
+  }
+
+  if (trafficSim?.enabled && trafficSim.severity === "heavy") {
+    return "Simulated heavy traffic delay detected";
+  }
+
+  if (trafficSim?.enabled && trafficSim.severity === "moderate") {
+    return "Simulated moderate traffic delay applied";
+  }
+
   const hasWeatherAdjustment =
     (adaptation.affectedAttractions?.length ?? 0) > 0 ||
     (adaptation.replacedAttractions?.length ?? 0) > 0;
@@ -175,6 +214,38 @@ function AdaptationCard({
           </ul>
         </div>
       ) : null}
+
+      {adaptation.trafficSimulation?.enabled ? (
+        <div className="adaptation-detail-group adaptation-traffic-detail">
+          <strong>Traffic simulation details</strong>
+          <ul>
+            <li>
+              Severity:{" "}
+              {toTitleCase(adaptation.trafficSimulation.severity)}
+            </li>
+            {adaptation.trafficSimulation.affectedSegment.from ? (
+              <li>
+                Affected segment:{" "}
+                {adaptation.trafficSimulation.affectedSegment.from} →{" "}
+                {adaptation.trafficSimulation.affectedSegment.to}
+              </li>
+            ) : null}
+            {adaptation.trafficSimulation.addedDelayMinutes > 0 ? (
+              <li>
+                Added delay: {adaptation.trafficSimulation.addedDelayMinutes}{" "}
+                min (original {adaptation.trafficSimulation.originalLegTravelTime}{" "}
+                min → {adaptation.trafficSimulation.simulatedLegTravelTime} min)
+              </li>
+            ) : null}
+            <li>
+              Status:{" "}
+              {toTitleCase(
+                adaptation.trafficSimulation.status.replace(/_/g, " ")
+              )}
+            </li>
+          </ul>
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -184,7 +255,17 @@ export function ItineraryResult({
   itinerary,
 }: ItineraryResultProps) {
   if (!itinerary) {
-    return null;
+    return (
+      <div className="state-panel itinerary-empty-state">
+        <p className="itinerary-empty-eyebrow">Your itinerary</p>
+        <h3>Ready to plan your day?</h3>
+        <p>
+          Choose your interests on the left and click{" "}
+          <strong>Generate itinerary</strong> to build your personalized
+          Sarajevo route.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -216,6 +297,10 @@ export function ItineraryResult({
         </div>
       </div>
 
+      {adaptation?.recommendationSource === "fallback" ? (
+        <p className="recommendation-source-note">Fallback recommendations</p>
+      ) : null}
+
       {adaptation ? <AdaptationCard adaptation={adaptation} /> : null}
 
       {itinerary.items.length === 0 ? (
@@ -226,46 +311,98 @@ export function ItineraryResult({
           </p>
         </div>
       ) : (
-        <div className="itinerary-list">
-          {itinerary.items.map((item, index) => (
-            <article className="itinerary-card" key={item.attraction.id}>
-              <div className="itinerary-card-top">
-                <div>
-                  <p className="attraction-category">
-                    Stop {index + 1} - {toTitleCase(item.attraction.category)}
-                  </p>
-                  <h3>{item.attraction.name}</h3>
+        <>
+          <ItineraryMap
+            key={buildMapKey(itinerary)}
+            items={itinerary.items}
+            routeGeometry={itinerary.routeGeometry}
+            routing={itinerary.routing}
+            transportMode={itinerary.transportMode}
+          />
+
+          <div className="itinerary-list">
+            {itinerary.items.map((item, index) => (
+              <article className="itinerary-card" key={item.attraction.id}>
+                {(() => {
+                  const imageSrc = item.attraction.thumbnail_url ?? item.attraction.image_url ?? null;
+                  const placeholderClass = getItineraryPlaceholderClass(item.attraction.category);
+                  return imageSrc ? (
+                    <div className="itinerary-card-image">
+                      <Image
+                        src={imageSrc}
+                        alt={item.attraction.name}
+                        fill
+                        sizes="(max-width: 760px) 100vw, 640px"
+                        style={{ objectFit: "cover" }}
+                        unoptimized={isWikimediaUrl(imageSrc)}
+                        onError={(e) => {
+                          const target = e.currentTarget as HTMLImageElement;
+                          target.style.display = "none";
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.classList.remove(...Array.from(parent.classList).filter(c => c !== "itinerary-card-image"));
+                            parent.classList.add("itinerary-card-image", placeholderClass);
+                            const label = document.createElement("span");
+                            label.className = "attraction-placeholder-label";
+                            label.textContent = toTitleCase(item.attraction.category);
+                            parent.appendChild(label);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className={`itinerary-card-image ${placeholderClass}`}>
+                      <span className="attraction-placeholder-label">
+                        {toTitleCase(item.attraction.category)}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                <div className="itinerary-card-top">
+                  <div>
+                    <p className="attraction-category">
+                      Stop {index + 1} - {toTitleCase(item.attraction.category)}
+                    </p>
+                    <h3>{item.attraction.name}</h3>
+                  </div>
+                  <span className="rating-pill">{formatScore(item.score)}</span>
                 </div>
-                <span className="rating-pill">{formatScore(item.score)}</span>
-              </div>
 
-              <p className="itinerary-reason">{item.reason}</p>
+                <p className="itinerary-reason">{item.reason}</p>
 
-              <div className="badge-row">
-                <Badge tone="blue">{toTitleCase(item.attraction.category)}</Badge>
-                <Badge tone="emerald">
-                  {item.plannedStartTime} - {item.plannedEndTime}
-                </Badge>
-                <Badge tone="slate">
-                  Visit {item.attraction.estimated_visit_duration} min
-                </Badge>
-              </div>
-
-              <dl className="itinerary-meta">
-                <div>
-                  <dt>Travel from previous</dt>
-                  <dd>{item.travelTimeFromPrevious} min</dd>
-                </div>
-                <div>
-                  <dt>Planned time</dt>
-                  <dd>
+                <div className="badge-row">
+                  <Badge tone="blue">{toTitleCase(item.attraction.category)}</Badge>
+                  <Badge tone="emerald">
                     {item.plannedStartTime} - {item.plannedEndTime}
-                  </dd>
+                  </Badge>
+                  <Badge tone="slate">
+                    Visit {item.attraction.estimated_visit_duration} min
+                  </Badge>
                 </div>
-              </dl>
-            </article>
-          ))}
-        </div>
+
+                <dl className="itinerary-meta">
+                  <div>
+                    <dt>Travel from previous</dt>
+                    <dd>
+                      {item.travelTimeFromPrevious === 0
+                        ? "0 min"
+                        : item.legTransport
+                          ? `${item.legTransport === "walking" ? "Walk" : "Drive"} · ${item.travelTimeFromPrevious} min`
+                          : `${item.travelTimeFromPrevious} min`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Planned time</dt>
+                    <dd>
+                      {item.plannedStartTime} - {item.plannedEndTime}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        </>
       )}
     </section>
   );

@@ -6,12 +6,19 @@ import {
   mergeAdaptations,
   SARAJEVO_COORDINATES,
 } from "@/lib/adaptation";
+import { resolvePreferredAttractions } from "@/lib/attraction-source-priority";
 import { query } from "@/lib/db";
 import {
   adaptItineraryFeasibility,
   type ItineraryCandidate,
 } from "@/lib/itinerary-feasibility";
+import { buildMixedModeRoute } from "@/lib/mixed-mode-routing";
+import {
+  type Coordinates,
+  type RoutingMetadata,
+} from "@/lib/routing";
 import { getCurrentWeather, type WeatherInfo } from "@/lib/weather";
+import { getRankedCandidates } from "@/lib/recommendation-ranking";
 import { applyWeatherAdaptation } from "@/lib/weather-adaptation";
 import type { Attraction } from "@/types/attraction";
 import type { GeneratedItinerary, RankedAttraction } from "@/types/itinerary";
@@ -20,9 +27,15 @@ import {
   preferredPaceValues,
   transportModeValues,
   type PlannerPreferences,
+  type TransportMode,
 } from "@/types/preference";
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const coordinateSchema = z.object({
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+});
 
 const preferenceSchema = z
   .object({
@@ -38,6 +51,7 @@ const preferenceSchema = z
     transportMode: z.enum(transportModeValues).default("walking"),
     preferredPace: z.enum(preferredPaceValues).default("moderate"),
     maxAttractions: z.coerce.number().int().min(1).max(12).default(5),
+    startLocation: coordinateSchema.optional(),
   })
   .refine(
     (preferences) =>
@@ -50,6 +64,10 @@ const preferenceSchema = z
 
 const itineraryRequestSchema = z.object({
   preferences: preferenceSchema,
+  // Evaluation-harness control parameters (all optional; absent = current behaviour).
+  mode: z.enum(["adaptive", "static"]).optional(),
+  weatherOverride: z.enum(["clear", "rain"]).optional(),
+  recommender: z.enum(["content", "popularity", "random"]).optional(),
 });
 
 type AttractionRow = QueryResultRow & {
@@ -57,6 +75,9 @@ type AttractionRow = QueryResultRow & {
   name: string;
   description: string | null;
   category: string;
+  primary_category: string | null;
+  secondary_categories: string[] | string | null;
+  tags: string[] | string | null;
   latitude: string | number;
   longitude: string | number;
   estimated_visit_duration: number;
@@ -65,28 +86,17 @@ type AttractionRow = QueryResultRow & {
   indoor_outdoor: string | null;
   opening_time: string | null;
   closing_time: string | null;
+  is_featured: boolean | null;
+  data_quality_score: string | number | null;
+  popularity_score: string | number | null;
+  normalized_name: string | null;
+  cleaning_notes: string | null;
+  source: string | null;
+  source_id: string | null;
+  image_url: string | null;
+  thumbnail_url: string | null;
   created_at?: string | Date | null;
 };
-
-type RecommendationAttractionPayload = {
-  id: number;
-  name: string;
-  description: string | null;
-  category: string;
-  latitude: number;
-  longitude: number;
-  estimated_visit_duration: number;
-  rating: number | null;
-  price_level: string | null;
-  indoor_outdoor: string | null;
-};
-
-class RecommendationServiceError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "RecommendationServiceError";
-  }
-}
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -117,61 +127,101 @@ export async function POST(request: Request) {
   }
 
   const preferences: PlannerPreferences = parsedRequest.data.preferences;
+  const mode = parsedRequest.data.mode ?? "adaptive";
+  const weatherOverride = parsedRequest.data.weatherOverride;
+  const recommender = parsedRequest.data.recommender ?? "content";
+  logItineraryRequest(preferences);
 
   try {
     const attractions = await fetchAttractions();
+    const resolvedAttractions = resolvePreferredAttractions(attractions);
 
-    if (attractions.length === 0) {
+    if (resolvedAttractions.length === 0) {
       return NextResponse.json({
         success: true,
-        itinerary: createEmptyItinerary(),
+        itinerary: {
+          ...createEmptyItinerary(),
+          routing: createInsufficientRoutingMetadata(
+            preferences.transportMode
+          ),
+          transportMode: preferences.transportMode,
+        },
         adaptation: createEmptyAdaptation({
           feasibilityStatus: "not_feasible",
         }),
+        mode,
+        recommender,
+        weatherUsed: null,
       });
     }
 
-    const rankedAttractions = await fetchRankedAttractions(
+    const { rankedAttractions, recommendationSource } = await getRankedCandidates(
       preferences,
-      attractions
+      recommender,
+      resolvedAttractions
     );
-    const weather = await fetchWeatherForAdaptation();
-    const weatherAdaptation = applyWeatherAdaptation(
-      rankedAttractions,
-      attractions,
-      weather,
-      preferences.maxAttractions
-    );
+
+    // Weather: static mode skips weather adaptation entirely so experiments are
+    // independent of outdoor-risk rescoring. weatherOverride fixes the value for
+    // adaptive-mode reproducibility.
+    const weather: WeatherInfo | null =
+      mode === "static"
+        ? null
+        : weatherOverride
+          ? createOverrideWeather(weatherOverride)
+          : await fetchWeatherForAdaptation();
+
+    const weatherAdaptation =
+      mode === "static"
+        ? { rankedAttractions, adaptation: createEmptyAdaptation() }
+        : applyWeatherAdaptation(
+            rankedAttractions,
+            resolvedAttractions,
+            weather,
+            preferences.maxAttractions
+          );
+
     const candidates = createItineraryCandidates(
-      attractions,
+      resolvedAttractions,
       weatherAdaptation.rankedAttractions
     );
     const feasibilityAdaptation = await adaptItineraryFeasibility(
       preferences,
       candidates
     );
-    const adaptation = mergeAdaptations(
+    const mergedAdaptation = mergeAdaptations(
       weatherAdaptation.adaptation,
       feasibilityAdaptation.adaptation
     );
+    const adaptation = {
+      ...mergedAdaptation,
+      recommendationSource,
+      ...(recommendationSource === "fallback"
+        ? {
+            applied: true,
+            reasons: [
+              ...mergedAdaptation.reasons,
+              "Recommendations generated in fallback mode — ML service unavailable",
+            ],
+          }
+        : {}),
+    };
+    const { itinerary: routedItinerary } = await applyMixedModeRoute(
+      feasibilityAdaptation.itinerary,
+      preferences
+    );
+    logItineraryResponseSelection(preferences, routedItinerary);
 
     return NextResponse.json({
       success: true,
-      itinerary: feasibilityAdaptation.itinerary,
+      itinerary: routedItinerary,
       adaptation,
+      recommendationSource,
+      mode,
+      recommender,
+      weatherUsed: weather,
     });
   } catch (error) {
-    if (error instanceof RecommendationServiceError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Recommendation service request failed",
-          details: error.message,
-        },
-        { status: 502 }
-      );
-    }
-
     console.error("Itinerary generation error:", error);
 
     return NextResponse.json(
@@ -184,6 +234,13 @@ export async function POST(request: Request) {
   }
 }
 
+function createOverrideWeather(weatherOverride: "clear" | "rain"): WeatherInfo {
+  if (weatherOverride === "rain") {
+    return { temperature: 15, condition: "rain", description: "simulated rain", isOutdoorRisk: true };
+  }
+  return { temperature: 20, condition: "clear", description: "simulated clear sky", isOutdoorRisk: false };
+}
+
 async function fetchAttractions(): Promise<Attraction[]> {
   const rows = await query<AttractionRow>(
     `SELECT
@@ -191,6 +248,9 @@ async function fetchAttractions(): Promise<Attraction[]> {
       name,
       description,
       category,
+      primary_category,
+      secondary_categories,
+      tags,
       latitude,
       longitude,
       estimated_visit_duration,
@@ -199,8 +259,23 @@ async function fetchAttractions(): Promise<Attraction[]> {
       indoor_outdoor,
       opening_time,
       closing_time,
+      is_featured,
+      data_quality_score,
+      popularity_score,
+      normalized_name,
+      cleaning_notes,
+      source,
+      source_id,
+      image_url,
+      (
+        SELECT ai.thumbnail_url
+        FROM attraction_images ai
+        WHERE ai.attraction_id = attractions.id AND ai.is_primary = true
+        LIMIT 1
+      ) AS thumbnail_url,
       created_at
     FROM attractions
+    WHERE COALESCE(is_active, true) = true
     ORDER BY id ASC`
   );
 
@@ -213,6 +288,9 @@ function normalizeAttraction(row: AttractionRow): Attraction {
     name: row.name,
     description: row.description,
     category: row.category,
+    primary_category: row.primary_category,
+    secondary_categories: normalizeTextArray(row.secondary_categories),
+    tags: normalizeTextArray(row.tags),
     latitude: toFiniteNumber(row.latitude, 0),
     longitude: toFiniteNumber(row.longitude, 0),
     estimated_visit_duration: row.estimated_visit_duration,
@@ -221,114 +299,23 @@ function normalizeAttraction(row: AttractionRow): Attraction {
     indoor_outdoor: row.indoor_outdoor,
     opening_time: row.opening_time,
     closing_time: row.closing_time,
+    is_featured: row.is_featured ?? false,
+    data_quality_score:
+      row.data_quality_score === null
+        ? undefined
+        : toFiniteNumber(row.data_quality_score, 0),
+    popularity_score:
+      row.popularity_score === null
+        ? undefined
+        : toFiniteNumber(row.popularity_score, 0),
+    normalized_name: row.normalized_name ?? undefined,
+    cleaning_notes: row.cleaning_notes ?? undefined,
+    source: row.source ?? null,
+    source_id: row.source_id ?? null,
+    image_url: row.image_url ?? null,
+    thumbnail_url: row.thumbnail_url ?? null,
     created_at: row.created_at ? String(row.created_at) : undefined,
   };
-}
-
-async function fetchRankedAttractions(
-  preferences: PlannerPreferences,
-  attractions: Attraction[]
-): Promise<RankedAttraction[]> {
-  const serviceUrl = process.env.ML_SERVICE_URL || "http://localhost:8000";
-  const endpoint = `${serviceUrl.replace(/\/$/, "")}/recommend`;
-  const controller = new AbortController();
-  const timeoutId = windowlessSetTimeout(() => controller.abort(), 12000);
-
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        preferences,
-        attractions: attractions.map(toRecommendationPayload),
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new RecommendationServiceError(
-        `Service returned HTTP ${response.status}`
-      );
-    }
-
-    const payload = (await response.json()) as unknown;
-    return parseRecommendationResponse(payload);
-  } catch (error) {
-    if (error instanceof RecommendationServiceError) {
-      throw error;
-    }
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Recommendation service is unavailable";
-
-    throw new RecommendationServiceError(message);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-function toRecommendationPayload(
-  attraction: Attraction
-): RecommendationAttractionPayload {
-  return {
-    id: attraction.id,
-    name: attraction.name,
-    description: attraction.description,
-    category: attraction.category,
-    latitude: toFiniteNumber(attraction.latitude, 0),
-    longitude: toFiniteNumber(attraction.longitude, 0),
-    estimated_visit_duration: attraction.estimated_visit_duration,
-    rating: attraction.rating === null ? null : toFiniteNumber(attraction.rating, 0),
-    price_level: attraction.price_level,
-    indoor_outdoor: attraction.indoor_outdoor,
-  };
-}
-
-function parseRecommendationResponse(payload: unknown): RankedAttraction[] {
-  if (!isRecord(payload)) {
-    throw new RecommendationServiceError("Service returned an invalid response");
-  }
-
-  if (payload.success !== true) {
-    const serviceError =
-      typeof payload.error === "string"
-        ? payload.error
-        : "Service did not return ranked attractions";
-    throw new RecommendationServiceError(serviceError);
-  }
-
-  if (!Array.isArray(payload.rankedAttractions)) {
-    throw new RecommendationServiceError("Service response is missing rankings");
-  }
-
-  return payload.rankedAttractions.flatMap((item) => {
-    if (!isRecord(item)) {
-      return [];
-    }
-
-    const id = Number(item.id);
-    const score = Number(item.score);
-    const reason =
-      typeof item.reason === "string" && item.reason.trim().length > 0
-        ? item.reason
-        : "Recommended by similarity score";
-
-    if (!Number.isInteger(id) || !Number.isFinite(score)) {
-      return [];
-    }
-
-    return [
-      {
-        id,
-        score: clamp(score, 0, 1),
-        reason,
-      },
-    ];
-  });
 }
 
 async function fetchWeatherForAdaptation(): Promise<WeatherInfo | null> {
@@ -375,22 +362,182 @@ function createEmptyItinerary(): GeneratedItinerary {
   };
 }
 
+function logItineraryRequest(preferences: PlannerPreferences): void {
+  console.log("/api/itinerary request:", {
+    maxStops: preferences.maxAttractions,
+    selectedInterests: preferences.interests,
+    transportMode: preferences.transportMode,
+  });
+}
+
+function logItineraryResponseSelection(
+  preferences: PlannerPreferences,
+  itinerary: GeneratedItinerary
+): void {
+  console.log("/api/itinerary selected attractions:", {
+    finalAttractions: itinerary.items.map((item) => item.attraction.name),
+    finalPrimaryCategories: itinerary.items.map(
+      (item) => item.attraction.primary_category ?? item.attraction.category
+    ),
+    maxStops: preferences.maxAttractions,
+    selectedInterests: preferences.interests,
+    transportMode: preferences.transportMode,
+  });
+}
+
+async function applyMixedModeRoute(
+  itinerary: GeneratedItinerary,
+  preferences: PlannerPreferences
+): Promise<{ itinerary: GeneratedItinerary }> {
+  const coordinates = itinerary.items
+    .map((item): Coordinates => ({
+      latitude: toFiniteNumber(item.attraction.latitude, 0),
+      longitude: toFiniteNumber(item.attraction.longitude, 0),
+    }))
+    .filter(isValidCoordinates);
+
+  if (coordinates.length < 2) {
+    return {
+      itinerary: {
+        ...itinerary,
+        routing: createInsufficientRoutingMetadata(preferences.transportMode),
+        transportMode: preferences.transportMode,
+      },
+    };
+  }
+
+  const { routeGeometry, routing: rawRouting, legTransports, legDurationsMinutes } =
+    await buildMixedModeRoute(coordinates, preferences.transportMode);
+
+  const routing = filterRoutingMetadata(rawRouting);
+
+  // Recalculate schedule using accurate per-leg durations and tag each item
+  // with its leg transport mode (the mode used to travel TO that stop).
+  const firstStartMinutes = timeToMinutes(itinerary.items[0]?.plannedStartTime ?? preferences.startTime);
+  let cursorMinutes = firstStartMinutes;
+  const updatedItems = itinerary.items.map((item, index) => {
+    const visitDuration =
+      timeToMinutes(item.plannedEndTime) - timeToMinutes(item.plannedStartTime);
+
+    if (index === 0) {
+      cursorMinutes = firstStartMinutes + visitDuration;
+      return item;
+    }
+
+    const travelTime = legDurationsMinutes[index - 1] ?? item.travelTimeFromPrevious;
+    const legTransport = legTransports[index - 1];
+    const plannedStart = cursorMinutes + travelTime;
+    const plannedEnd = plannedStart + visitDuration;
+    cursorMinutes = plannedEnd;
+
+    return {
+      ...item,
+      travelTimeFromPrevious: travelTime,
+      legTransport,
+      plannedStartTime: minutesToTime(plannedStart),
+      plannedEndTime: minutesToTime(plannedEnd),
+    };
+  });
+
+  const newTotalTravel = updatedItems.reduce(
+    (sum, item) => sum + item.travelTimeFromPrevious,
+    0
+  );
+  const newTotalVisit = updatedItems.reduce(
+    (sum, item) =>
+      sum +
+      timeToMinutes(item.plannedEndTime) -
+      timeToMinutes(item.plannedStartTime),
+    0
+  );
+
+  const updatedItinerary: GeneratedItinerary = {
+    ...itinerary,
+    items: updatedItems,
+    totalTravelTime: newTotalTravel,
+    totalVisitTime: newTotalVisit,
+    totalDuration: newTotalTravel + newTotalVisit,
+    routeGeometry,
+    routing,
+    transportMode: preferences.transportMode,
+  };
+
+  return { itinerary: updatedItinerary };
+}
+
+function filterRoutingMetadata(routing: RoutingMetadata): RoutingMetadata {
+  if (process.env.NODE_ENV === "development") {
+    return routing;
+  }
+
+  return {
+    geometryPointCount: routing.geometryPointCount,
+    provider: routing.provider,
+    transport: routing.transport,
+    ...(routing.legs ? { legs: routing.legs } : {}),
+    ...(routing.hasMixedModes ? { hasMixedModes: true } : {}),
+  };
+}
+
+function createInsufficientRoutingMetadata(
+  transport: TransportMode
+): RoutingMetadata {
+  return {
+    ...(process.env.NODE_ENV === "development"
+      ? { fallbackReason: "insufficient_coordinates" as const }
+      : {}),
+    geometryPointCount: 0,
+    provider: "fallback",
+    transport,
+  };
+}
+
+function isValidCoordinates(coordinates: Coordinates): boolean {
+  return (
+    Number.isFinite(coordinates.latitude) &&
+    Number.isFinite(coordinates.longitude) &&
+    coordinates.latitude >= -90 &&
+    coordinates.latitude <= 90 &&
+    coordinates.longitude >= -180 &&
+    coordinates.longitude <= 180 &&
+    !(coordinates.latitude === 0 && coordinates.longitude === 0)
+  );
+}
+
 function timeToMinutes(value: string): number {
   const [hour, minute] = value.split(":").map(Number);
   return hour * 60 + minute;
 }
 
+function minutesToTime(value: number): string {
+  const minutesInDay = 24 * 60;
+  const normalized = ((value % minutesInDay) + minutesInDay) % minutesInDay;
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function normalizeTextArray(value: string[] | string | null): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return [];
+  }
+
+  return value
+    .replace(/^{|}$/g, "")
+    .split(",")
+    .map((item) => item.replace(/^"|"$/g, "").trim())
+    .filter((item) => item.length > 0);
+}
+
 function toFiniteNumber(value: string | number, fallback: number): number {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : fallback;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function windowlessSetTimeout(

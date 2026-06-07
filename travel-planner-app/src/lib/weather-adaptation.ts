@@ -72,10 +72,10 @@ export function applyWeatherAdaptation(
 
   const weatherCondition = weather.condition;
 
-  if (!isBadWeatherCondition(weatherCondition) && !weather.isOutdoorRisk) {
+  if (!isBadWeatherCondition(weatherCondition)) {
     return {
       rankedAttractions,
-      adaptation: createEmptyAdaptation({ weatherCondition }),
+      adaptation: createEmptyAdaptation(),
     };
   }
 
@@ -119,7 +119,7 @@ export function applyWeatherAdaptation(
     adaptation: createEmptyAdaptation({
       applied: affectedAttractions.length > 0,
       reasons: affectedAttractions.length > 0 ? [WEATHER_REASON] : [],
-      weatherCondition,
+      ...(affectedAttractions.length > 0 ? { weatherCondition } : {}),
       ...(affectedAttractions.length > 0 ? { affectedAttractions } : {}),
       ...(replacedAttractions.length > 0 ? { replacedAttractions } : {}),
     }),
