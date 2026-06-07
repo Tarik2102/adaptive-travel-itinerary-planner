@@ -766,6 +766,8 @@ section[id] {
 
 .interest-group-toggle:focus-visible,
 .interest-chip:focus-visible,
+.trip-duration-option:focus-visible,
+.itinerary-day-tab:focus-visible,
 .field input:focus,
 .field select:focus,
 .button:focus-visible,
@@ -813,6 +815,48 @@ section[id] {
 .field input:focus,
 .field select:focus {
   border-color: var(--primary);
+}
+
+.trip-duration-control {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.trip-duration-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: #ffffff;
+  font-weight: 800;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.trip-duration-option:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+}
+
+.trip-duration-option-active {
+  border-color: rgba(15, 103, 177, 0.55);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px rgba(15, 103, 177, 0.12);
+}
+
+.trip-duration-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
 }
 
 .form-summary {
@@ -874,6 +918,45 @@ section[id] {
   min-width: 0;
 }
 
+.itinerary-day-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.itinerary-day-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 0 14px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 0.88rem;
+  font-weight: 800;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.itinerary-day-tab:hover {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+}
+
+.itinerary-day-tab-active {
+  border-color: rgba(15, 103, 177, 0.62);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px rgba(15, 103, 177, 0.12);
+}
+
 .itinerary-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -901,6 +984,18 @@ section[id] {
 .itinerary-summary-grid strong {
   color: var(--foreground);
   font-size: 1.05rem;
+}
+
+.itinerary-day-note {
+  border: 1px solid rgba(184, 117, 24, 0.28);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  color: #80530f;
+  background: var(--amber-soft);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+  margin-bottom: 6px;
 }
 
 .recommendation-source-note {
@@ -3044,4 +3139,76 @@ section[id] {
 .itinerary-card-clickable:focus-visible {
   outline: 3px solid rgba(15, 103, 177, 0.28);
   outline-offset: 2px;
+}
+
+/* ══════════════════════════════════════════════════════
+   MULTI-DAY CONTROLS — day tabs + "Update this day"
+═══════════════════════════════════════════════════════ */
+
+/* Flex row: day tabs on the left, Update button on the right */
+.itinerary-day-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+/* Let the tab strip grow and fill available space */
+.itinerary-day-controls .itinerary-day-tabs {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Small button variant — used for "Update this day" */
+.button-sm {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
+.update-day-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Outline/ghost style — used for "Regenerate all days" (clearly secondary) */
+.button-outline {
+  color: var(--primary);
+  border-color: rgba(15, 103, 177, 0.42);
+  background: transparent;
+}
+
+.button-outline:hover {
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  box-shadow: 0 6px 16px rgba(15, 103, 177, 0.1);
+}
+
+.button-outline:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+  transform: none;
+}
+
+/* Subtle ring on primary/outline buttons when preferences have pending changes */
+.button-has-pending {
+  box-shadow:
+    0 0 0 2.5px rgba(15, 103, 177, 0.28),
+    0 12px 24px rgba(15, 103, 177, 0.24);
+}
+
+/* Pending-changes dot indicator inside button text */
+.pending-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.62;
+  margin-left: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
 }

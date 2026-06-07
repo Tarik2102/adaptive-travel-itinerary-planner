@@ -146,13 +146,28 @@ export type TrafficAdaptResponse =
 export type ItineraryPlan = {
   itinerary: GeneratedItinerary;
   adaptation: ItineraryAdaptation;
+  selectedAttractionIds?: string[];
+  days?: ItineraryDayPlan[];
+};
+
+export type ItineraryDayPlan = {
+  dayNumber: number;
+  itinerary: GeneratedItinerary;
+  adaptation: ItineraryAdaptation;
+  selectedAttractionIds: string[];
+  hasFewerStopsThanRequested: boolean;
+  generatedPreferences: PlannerPreferences;
 };
 
 export type ItinerarySuccessResponse = {
   success: true;
   itinerary: GeneratedItinerary;
   adaptation: ItineraryAdaptation;
-  recommendationSource: "ml" | "fallback";
+  recommendationSource?: "ml" | "fallback";
+  selectedAttractionIds: string[];
+  mode?: "adaptive" | "static";
+  recommender?: "content" | "popularity" | "random";
+  weatherUsed?: unknown;
 };
 
 export type ItineraryErrorResponse = {
@@ -169,4 +184,5 @@ export type ItineraryResponse = ItineraryApiResponse;
 
 export type ItineraryRequest = {
   preferences: PlannerPreferences;
+  excludeAttractionIds?: string[];
 };

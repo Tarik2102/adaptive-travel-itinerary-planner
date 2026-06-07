@@ -7,11 +7,23 @@ import { Badge } from "@/components/Badge";
 import { ItineraryMap } from "@/components/ItineraryMap";
 import { SectionHeader } from "@/components/SectionHeader";
 import type { Attraction, AttractionImage } from "@/types/attraction";
-import type { GeneratedItinerary, ItineraryAdaptation } from "@/types/itinerary";
+import type {
+  GeneratedItinerary,
+  ItineraryAdaptation,
+  ItineraryDayPlan,
+} from "@/types/itinerary";
 
 type ItineraryResultProps = {
   adaptation: ItineraryAdaptation | null;
   itinerary: GeneratedItinerary | null;
+  days?: ItineraryDayPlan[];
+  activeDayIndex: number;
+  onActiveDayChange: (index: number) => void;
+  onUpdateDay: (dayNumber: number) => Promise<void>;
+  isUpdatingDay: boolean;
+  updateDayProgress: string | null;
+  updateDayError: string | null;
+  hasPendingChanges: boolean;
 };
 
 type ImagesResponse =
@@ -261,12 +273,29 @@ function AdaptationCard({
 
 export function ItineraryResult({
   adaptation,
+  days,
   itinerary,
+  activeDayIndex,
+  onActiveDayChange,
+  onUpdateDay,
+  isUpdatingDay,
+  updateDayProgress,
+  updateDayError,
+  hasPendingChanges,
 }: ItineraryResultProps) {
   const [selectedAttraction, setSelectedAttraction] = useState<Attraction | null>(null);
   const [modalImages, setModalImages] = useState<AttractionImage[]>([]);
   const [modalImagesLoading, setModalImagesLoading] = useState(false);
   const imageCache = useRef<Map<number, AttractionImage[]>>(new Map());
+  const isMultiDay = (days?.length ?? 0) > 1;
+  const visibleActiveDayIndex =
+    isMultiDay && days ? Math.min(activeDayIndex, days.length - 1) : 0;
+  const activeDay =
+    isMultiDay && days
+      ? days[visibleActiveDayIndex]
+      : null;
+  const displayedItinerary = activeDay?.itinerary ?? itinerary;
+  const displayedAdaptation = activeDay?.adaptation ?? adaptation;
 
   const handleCardClick = useCallback(async (attraction: Attraction) => {
     setSelectedAttraction(attraction);
@@ -296,7 +325,7 @@ export function ItineraryResult({
     setSelectedAttraction(null);
   }, []);
 
-  if (!itinerary) {
+  if (!displayedItinerary) {
     return (
       <div className="state-panel itinerary-empty-state">
         <p className="itinerary-empty-eyebrow">Your itinerary</p>
@@ -318,34 +347,90 @@ export function ItineraryResult({
         description="Ranked attractions fitted to the selected travel window."
       />
 
+      {isMultiDay && days ? (
+        <div className="itinerary-day-controls">
+          <div className="itinerary-day-tabs" role="tablist" aria-label="Itinerary days">
+            {days.map((day, index) => (
+              <button
+                type="button"
+                className={`itinerary-day-tab${
+                  index === visibleActiveDayIndex ? " itinerary-day-tab-active" : ""
+                }`}
+                role="tab"
+                aria-selected={index === visibleActiveDayIndex}
+                key={day.dayNumber}
+                onClick={() => onActiveDayChange(index)}
+              >
+                Day {day.dayNumber}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className={`button button-primary button-sm update-day-button${hasPendingChanges ? " button-has-pending" : ""}`}
+            onClick={() => {
+              const day = days[visibleActiveDayIndex];
+              if (day) void onUpdateDay(day.dayNumber);
+            }}
+            disabled={isUpdatingDay}
+            aria-label={`Update Day ${days[visibleActiveDayIndex]?.dayNumber ?? visibleActiveDayIndex + 1} with current preferences`}
+          >
+            {isUpdatingDay ? (
+              updateDayProgress ?? "Updating..."
+            ) : (
+              <>
+                ↺ Update this day
+                {hasPendingChanges ? (
+                  <span className="pending-dot" aria-hidden="true" />
+                ) : null}
+              </>
+            )}
+          </button>
+        </div>
+      ) : null}
+
+      {updateDayError ? (
+        <div className="form-error" role="alert">
+          <strong>Update failed</strong>
+          <p>{updateDayError}</p>
+        </div>
+      ) : null}
+
       <div className="itinerary-summary-grid" aria-label="Itinerary summary">
         <div>
           <span>Total duration</span>
-          <strong>{itinerary.totalDuration} min</strong>
+          <strong>{displayedItinerary.totalDuration} min</strong>
         </div>
         <div>
           <span>Visit time</span>
-          <strong>{itinerary.totalVisitTime} min</strong>
+          <strong>{displayedItinerary.totalVisitTime} min</strong>
         </div>
         <div>
           <span>Travel time</span>
-          <strong>{itinerary.totalTravelTime} min</strong>
+          <strong>{displayedItinerary.totalTravelTime} min</strong>
         </div>
         <div>
           <span>Status</span>
-          <Badge tone={getStatusTone(itinerary.feasibilityStatus)}>
-            {formatStatus(itinerary.feasibilityStatus)}
+          <Badge tone={getStatusTone(displayedItinerary.feasibilityStatus)}>
+            {formatStatus(displayedItinerary.feasibilityStatus)}
           </Badge>
         </div>
       </div>
 
-      {adaptation?.recommendationSource === "fallback" ? (
+      {activeDay?.hasFewerStopsThanRequested ? (
+        <p className="itinerary-day-note">
+          Fewer stops available for this day — some interests have been fully covered.
+        </p>
+      ) : null}
+
+      {displayedAdaptation?.recommendationSource === "fallback" ? (
         <p className="recommendation-source-note">Fallback recommendations</p>
       ) : null}
 
-      {adaptation ? <AdaptationCard adaptation={adaptation} /> : null}
+      {displayedAdaptation ? <AdaptationCard adaptation={displayedAdaptation} /> : null}
 
-      {itinerary.items.length === 0 ? (
+      {displayedItinerary.items.length === 0 ? (
         <div className="state-panel">
           <h3>No feasible itinerary found</h3>
           <p>
@@ -355,15 +440,15 @@ export function ItineraryResult({
       ) : (
         <>
           <ItineraryMap
-            key={buildMapKey(itinerary)}
-            items={itinerary.items}
-            routeGeometry={itinerary.routeGeometry}
-            routing={itinerary.routing}
-            transportMode={itinerary.transportMode}
+            key={buildMapKey(displayedItinerary)}
+            items={displayedItinerary.items}
+            routeGeometry={displayedItinerary.routeGeometry}
+            routing={displayedItinerary.routing}
+            transportMode={displayedItinerary.transportMode}
           />
 
           <div className="itinerary-list">
-            {itinerary.items.map((item, index) => (
+            {displayedItinerary.items.map((item, index) => (
               <button
                 type="button"
                 className="itinerary-card itinerary-card-clickable"

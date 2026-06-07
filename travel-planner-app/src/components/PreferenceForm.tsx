@@ -8,7 +8,12 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ItineraryApiResponse, ItineraryPlan } from "@/types/itinerary";
+import type {
+  ItineraryApiResponse,
+  ItineraryDayPlan,
+  ItineraryPlan,
+  ItinerarySuccessResponse,
+} from "@/types/itinerary";
 import { TimePicker } from "@/components/TimePicker";
 import {
   interestGroups,
@@ -21,16 +26,18 @@ import {
 } from "@/types/preference";
 
 type PreferenceFormProps = {
+  hasPendingChanges: boolean;
+  isMultiDayPlan: boolean;
+  loadPreferences: { prefs: PlannerPreferences } | null;
   onItineraryGenerated: (itineraryPlan: ItineraryPlan | null) => void;
+  onGenerationComplete: (preferences: PlannerPreferences) => void;
   onPreferencesChanged?: (preferences: PlannerPreferences) => void;
 };
 
 const interestValidationMessage =
   "Please select at least one interest to generate your itinerary.";
-const autoRegenerationDelayMs = 1000;
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-type SubmissionMode = "manual" | "auto";
+const tripDurationOptions = [1, 2, 3, 4, 5] as const;
 
 function isValidPreferenceInput(preferences: PlannerPreferences) {
   if (
@@ -41,8 +48,7 @@ function isValidPreferenceInput(preferences: PlannerPreferences) {
   }
 
   return (
-    timeToMinutes(preferences.endTime) >
-    timeToMinutes(preferences.startTime)
+    timeToMinutes(preferences.endTime) > timeToMinutes(preferences.startTime)
   );
 }
 
@@ -51,8 +57,37 @@ function timeToMinutes(value: string): number {
   return hour * 60 + minute;
 }
 
+function getResultSelectedAttractionIds(
+  result: ItinerarySuccessResponse
+): string[] {
+  return (
+    result.selectedAttractionIds ??
+    result.itinerary.items.map((item) => String(item.attraction.id))
+  );
+}
+
+function buildItineraryDayPlan(
+  dayNumber: number,
+  result: ItinerarySuccessResponse,
+  preferences: PlannerPreferences
+): ItineraryDayPlan {
+  return {
+    dayNumber,
+    itinerary: result.itinerary,
+    adaptation: result.adaptation,
+    selectedAttractionIds: getResultSelectedAttractionIds(result),
+    hasFewerStopsThanRequested:
+      result.itinerary.items.length < preferences.maxAttractions,
+    generatedPreferences: { ...preferences, interests: [...preferences.interests] },
+  };
+}
+
 export function PreferenceForm({
+  hasPendingChanges,
+  isMultiDayPlan,
+  loadPreferences,
   onItineraryGenerated,
+  onGenerationComplete,
   onPreferencesChanged,
 }: PreferenceFormProps) {
   const [interests, setInterests] = useState<TravelInterest[]>([]);
@@ -62,9 +97,9 @@ export function PreferenceForm({
   const [transportMode, setTransportMode] = useState<TransportMode>("walking");
   const [preferredPace, setPreferredPace] = useState<PreferredPace>("moderate");
   const [maxAttractions, setMaxAttractions] = useState(5);
+  const [numberOfDays, setNumberOfDays] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submissionMode, setSubmissionMode] =
-    useState<SubmissionMode>("manual");
+  const [generationProgress, setGenerationProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showInterestValidation, setShowInterestValidation] = useState(false);
   const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
@@ -101,10 +136,11 @@ export function PreferenceForm({
       transportMode,
     ]
   );
-  const preferenceKey = useMemo(
-    () => JSON.stringify(preferences),
-    [preferences]
-  );
+
+  function handlePreferencesChanged() {
+    setError(null);
+    lastRequestKeyRef.current = null;
+  }
 
   function toggleInterest(interest: TravelInterest) {
     const nextInterests = interests.includes(interest)
@@ -136,46 +172,44 @@ export function PreferenceForm({
     setShowInterestValidation(false);
   }
 
-  function handlePreferencesChanged() {
-    if (!hasGeneratedItinerary) {
+  function handleTripDurationChange(nextNumberOfDays: number) {
+    if (nextNumberOfDays === numberOfDays) {
       return;
     }
 
-    abortControllerRef.current?.abort();
-    requestSequenceRef.current += 1;
-    activeRequestIdRef.current = requestSequenceRef.current;
+    setNumberOfDays(nextNumberOfDays);
     lastRequestKeyRef.current = null;
-    setError(null);
-    setIsSubmitting(false);
-    onItineraryGenerated(null);
+
+    if (hasGeneratedItinerary && preferences.interests.length > 0) {
+      void requestItinerary(preferences, nextNumberOfDays);
+    }
   }
 
   const requestItinerary = useCallback(
-    async (nextPreferences: PlannerPreferences, mode: SubmissionMode) => {
-      if (nextPreferences.interests.length === 0) {
-        if (mode === "manual") {
-          setShowInterestValidation(true);
-          setError(null);
-          onItineraryGenerated(null);
-          setHasGeneratedItinerary(false);
-        }
+    async (nextPreferences: PlannerPreferences, overrideNumberOfDays?: number) => {
+      const requestedNumberOfDays = overrideNumberOfDays ?? numberOfDays;
 
+      if (nextPreferences.interests.length === 0) {
+        setShowInterestValidation(true);
+        setError(null);
+        setGenerationProgress(null);
+        onItineraryGenerated(null);
+        setHasGeneratedItinerary(false);
         return;
       }
 
       if (!isValidPreferenceInput(nextPreferences)) {
-        if (mode === "manual") {
-          setError("Please enter a valid time window before generating.");
-        }
-
+        setError("Please enter a valid time window before generating.");
+        setGenerationProgress(null);
         return;
       }
 
-      const requestKey = JSON.stringify(nextPreferences);
+      const requestKey = JSON.stringify({
+        preferences: nextPreferences,
+        numberOfDays: requestedNumberOfDays,
+      });
 
-      if (mode === "auto" && lastRequestKeyRef.current === requestKey) {
-        return;
-      }
+      if (lastRequestKeyRef.current === requestKey) return;
 
       abortControllerRef.current?.abort();
       const abortController = new AbortController();
@@ -187,42 +221,84 @@ export function PreferenceForm({
       lastRequestKeyRef.current = requestKey;
 
       setIsSubmitting(true);
-      setSubmissionMode(mode);
       setError(null);
+      setGenerationProgress(
+        requestedNumberOfDays > 1
+          ? `Generating Day 1 of ${requestedNumberOfDays}...`
+          : null
+      );
       setShowInterestValidation(false);
-
       onItineraryGenerated(null);
 
       try {
-        const response = await fetch("/api/itinerary", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ preferences: nextPreferences }),
-          signal: abortController.signal,
-        });
+        const days: ItineraryDayPlan[] = [];
+        const excludedAttractionIds = new Set<string>();
 
-        const result = (await response.json()) as ItineraryApiResponse;
+        for (
+          let dayNumber = 1;
+          dayNumber <= requestedNumberOfDays;
+          dayNumber += 1
+        ) {
+          if (requestedNumberOfDays > 1) {
+            setGenerationProgress(
+              `Generating Day ${dayNumber} of ${requestedNumberOfDays}...`
+            );
+          }
 
-        if (!response.ok || !result.success) {
-          throw new Error(
-            result.success ? "Failed to generate itinerary" : result.error
+          const response = await fetch("/api/itinerary", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              preferences: nextPreferences,
+              excludeAttractionIds: Array.from(excludedAttractionIds),
+            }),
+            signal: abortController.signal,
+          });
+
+          const result = (await response.json()) as ItineraryApiResponse;
+
+          if (!response.ok || !result.success) {
+            throw new Error(
+              result.success ? "Failed to generate itinerary" : result.error
+            );
+          }
+
+          if (
+            abortController.signal.aborted ||
+            activeRequestIdRef.current !== requestId
+          ) {
+            return;
+          }
+
+          const dayPlan = buildItineraryDayPlan(
+            dayNumber,
+            result as ItinerarySuccessResponse,
+            nextPreferences
+          );
+
+          days.push(dayPlan);
+
+          dayPlan.selectedAttractionIds.forEach((id) =>
+            excludedAttractionIds.add(id)
           );
         }
 
-        if (
-          abortController.signal.aborted ||
-          activeRequestIdRef.current !== requestId
-        ) {
-          return;
+        const firstDay = days[0];
+
+        if (!firstDay) {
+          throw new Error("Failed to generate itinerary");
         }
 
         setHasGeneratedItinerary(true);
         onItineraryGenerated({
-          itinerary: result.itinerary,
-          adaptation: result.adaptation,
+          itinerary: firstDay.itinerary,
+          adaptation: firstDay.adaptation,
+          selectedAttractionIds: firstDay.selectedAttractionIds,
+          ...(requestedNumberOfDays > 1 ? { days } : {}),
         });
+        onGenerationComplete(nextPreferences);
       } catch (requestError) {
         if (
           abortController.signal.aborted ||
@@ -244,33 +320,30 @@ export function PreferenceForm({
         ) {
           abortControllerRef.current = null;
           setIsSubmitting(false);
+          setGenerationProgress(null);
         }
       }
     },
-    [onItineraryGenerated]
+    [numberOfDays, onGenerationComplete, onItineraryGenerated]
   );
+
+  useEffect(() => {
+    if (!loadPreferences) return;
+    const { prefs } = loadPreferences;
+    setInterests(prefs.interests.slice() as TravelInterest[]);
+    setStartTime(prefs.startTime);
+    setEndTime(prefs.endTime);
+    setBudgetLevel(prefs.budgetLevel);
+    setTransportMode(prefs.transportMode);
+    setPreferredPace(prefs.preferredPace);
+    setMaxAttractions(prefs.maxAttractions);
+    setShowInterestValidation(false);
+    lastRequestKeyRef.current = null;
+  }, [loadPreferences]);
 
   useEffect(() => {
     onPreferencesChanged?.(preferences);
   }, [preferences, onPreferencesChanged]);
-
-  useEffect(() => {
-    if (!hasGeneratedItinerary || interests.length === 0) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void requestItinerary(preferences, "auto");
-    }, autoRegenerationDelayMs);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [
-    hasGeneratedItinerary,
-    interests.length,
-    preferenceKey,
-    preferences,
-    requestItinerary,
-  ]);
 
   useEffect(() => {
     return () => {
@@ -280,16 +353,18 @@ export function PreferenceForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    lastRequestKeyRef.current = null;
 
     if (preferences.interests.length === 0) {
       setShowInterestValidation(true);
       setError(null);
+      setGenerationProgress(null);
       onItineraryGenerated(null);
       setHasGeneratedItinerary(false);
       return;
     }
 
-    await requestItinerary(preferences, "manual");
+    await requestItinerary(preferences);
   }
 
   function handleReset() {
@@ -300,8 +375,10 @@ export function PreferenceForm({
     setTransportMode("walking");
     setPreferredPace("moderate");
     setMaxAttractions(5);
+    setNumberOfDays(1);
     setOpenInterestGroups([interestGroups[0].label]);
     setError(null);
+    setGenerationProgress(null);
     setShowInterestValidation(false);
     setHasGeneratedItinerary(false);
     lastRequestKeyRef.current = null;
@@ -310,6 +387,9 @@ export function PreferenceForm({
     abortControllerRef.current?.abort();
     onItineraryGenerated(null);
   }
+
+  const submitButtonLabel =
+    generationProgress ?? (isSubmitting ? "Generating..." : "Generate itinerary");
 
   return (
     <form onSubmit={handleSubmit} className="preference-form" aria-busy={isSubmitting}>
@@ -430,6 +510,33 @@ export function PreferenceForm({
           />
         </div>
 
+        <div
+          className="field trip-duration-field"
+          role="radiogroup"
+          aria-label="Trip duration, maximum 5 days"
+        >
+          <span>Trip duration (max 5 days)</span>
+          <div className="trip-duration-control">
+            {tripDurationOptions.map((duration) => (
+              <button
+                type="button"
+                className={`trip-duration-option${
+                  numberOfDays === duration
+                    ? " trip-duration-option-active"
+                    : ""
+                }`}
+                role="radio"
+                aria-checked={numberOfDays === duration}
+                key={duration}
+                onClick={() => handleTripDurationChange(duration)}
+                disabled={isSubmitting}
+              >
+                {duration}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <label className="field">
           <span>Budget level</span>
           <select
@@ -496,6 +603,9 @@ export function PreferenceForm({
           {startTime} - {endTime}
         </strong>
         <span>{interests.length || "No"} interests selected</span>
+        <span>
+          {numberOfDays} day{numberOfDays === 1 ? "" : "s"}
+        </span>
       </div>
 
       {error ? (
@@ -506,13 +616,36 @@ export function PreferenceForm({
       ) : null}
 
       <div className="form-actions">
-        <button type="submit" className="button button-primary" disabled={isSubmitting}>
-          {isSubmitting && submissionMode === "auto"
-            ? "Updating itinerary..."
-            : isSubmitting
-              ? "Generating..."
-              : "Generate itinerary"}
+        <button
+          type="submit"
+          className="button button-primary"
+          disabled={isSubmitting}
+          aria-label="Generate itinerary"
+        >
+          {submitButtonLabel}
+          {hasPendingChanges && !isSubmitting ? (
+            <span className="pending-dot" aria-hidden="true" />
+          ) : null}
         </button>
+
+        {isMultiDayPlan ? (
+          <button
+            type="button"
+            className="button button-outline"
+            onClick={() => {
+              lastRequestKeyRef.current = null;
+              void requestItinerary(preferences);
+            }}
+            disabled={isSubmitting}
+            aria-label="Regenerate all days with current preferences"
+          >
+            Regenerate all days
+            {hasPendingChanges && !isSubmitting ? (
+              <span className="pending-dot" aria-hidden="true" />
+            ) : null}
+          </button>
+        ) : null}
+
         <button
           type="button"
           className="button button-secondary"
