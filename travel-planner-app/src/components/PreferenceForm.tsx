@@ -20,7 +20,6 @@ import {
   travelInterestOptions,
   type BudgetLevel,
   type PlannerPreferences,
-  type PreferredPace,
   type TransportMode,
   type TravelInterest,
 } from "@/types/preference";
@@ -29,10 +28,16 @@ type PreferenceFormProps = {
   hasPendingChanges: boolean;
   isMultiDayPlan: boolean;
   loadPreferences: { prefs: PlannerPreferences } | null;
+  numberOfDays: number;
+  onNumberOfDaysChange: (n: number) => Promise<void> | void;
   onItineraryGenerated: (itineraryPlan: ItineraryPlan | null) => void;
   onGenerationComplete: (preferences: PlannerPreferences) => void;
   onPreferencesChanged?: (preferences: PlannerPreferences) => void;
+  onGeneratingChange?: (isGenerating: boolean, progress: string | null) => void;
 };
+
+const INTERNAL_MAX_STOPS = 12;
+const INTERNAL_PACE = "moderate" as const;
 
 const interestValidationMessage =
   "Please select at least one interest to generate your itinerary.";
@@ -76,8 +81,7 @@ function buildItineraryDayPlan(
     itinerary: result.itinerary,
     adaptation: result.adaptation,
     selectedAttractionIds: getResultSelectedAttractionIds(result),
-    hasFewerStopsThanRequested:
-      result.itinerary.items.length < preferences.maxAttractions,
+    hasFewerStopsThanRequested: false,
     generatedPreferences: { ...preferences, interests: [...preferences.interests] },
   };
 }
@@ -86,23 +90,22 @@ export function PreferenceForm({
   hasPendingChanges,
   isMultiDayPlan,
   loadPreferences,
+  numberOfDays,
+  onNumberOfDaysChange,
   onItineraryGenerated,
   onGenerationComplete,
   onPreferencesChanged,
+  onGeneratingChange,
 }: PreferenceFormProps) {
   const [interests, setInterests] = useState<TravelInterest[]>([]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const [budgetLevel, setBudgetLevel] = useState<BudgetLevel>("medium");
   const [transportMode, setTransportMode] = useState<TransportMode>("walking");
-  const [preferredPace, setPreferredPace] = useState<PreferredPace>("moderate");
-  const [maxAttractions, setMaxAttractions] = useState(5);
-  const [numberOfDays, setNumberOfDays] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showInterestValidation, setShowInterestValidation] = useState(false);
-  const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
   const [openInterestGroups, setOpenInterestGroups] = useState<string[]>([
     interestGroups[0].label,
   ]);
@@ -123,18 +126,10 @@ export function PreferenceForm({
       endTime,
       budgetLevel,
       transportMode,
-      preferredPace,
-      maxAttractions,
+      preferredPace: INTERNAL_PACE,
+      maxAttractions: INTERNAL_MAX_STOPS,
     }),
-    [
-      budgetLevel,
-      endTime,
-      interests,
-      maxAttractions,
-      preferredPace,
-      startTime,
-      transportMode,
-    ]
+    [budgetLevel, endTime, interests, startTime, transportMode]
   );
 
   function handlePreferencesChanged() {
@@ -172,19 +167,6 @@ export function PreferenceForm({
     setShowInterestValidation(false);
   }
 
-  function handleTripDurationChange(nextNumberOfDays: number) {
-    if (nextNumberOfDays === numberOfDays) {
-      return;
-    }
-
-    setNumberOfDays(nextNumberOfDays);
-    lastRequestKeyRef.current = null;
-
-    if (hasGeneratedItinerary && preferences.interests.length > 0) {
-      void requestItinerary(preferences, nextNumberOfDays);
-    }
-  }
-
   const requestItinerary = useCallback(
     async (nextPreferences: PlannerPreferences, overrideNumberOfDays?: number) => {
       const requestedNumberOfDays = overrideNumberOfDays ?? numberOfDays;
@@ -194,7 +176,7 @@ export function PreferenceForm({
         setError(null);
         setGenerationProgress(null);
         onItineraryGenerated(null);
-        setHasGeneratedItinerary(false);
+
         return;
       }
 
@@ -291,7 +273,6 @@ export function PreferenceForm({
           throw new Error("Failed to generate itinerary");
         }
 
-        setHasGeneratedItinerary(true);
         onItineraryGenerated({
           itinerary: firstDay.itinerary,
           adaptation: firstDay.adaptation,
@@ -335,8 +316,6 @@ export function PreferenceForm({
     setEndTime(prefs.endTime);
     setBudgetLevel(prefs.budgetLevel);
     setTransportMode(prefs.transportMode);
-    setPreferredPace(prefs.preferredPace);
-    setMaxAttractions(prefs.maxAttractions);
     setShowInterestValidation(false);
     lastRequestKeyRef.current = null;
   }, [loadPreferences]);
@@ -344,6 +323,10 @@ export function PreferenceForm({
   useEffect(() => {
     onPreferencesChanged?.(preferences);
   }, [preferences, onPreferencesChanged]);
+
+  useEffect(() => {
+    onGeneratingChange?.(isSubmitting, generationProgress);
+  }, [isSubmitting, generationProgress, onGeneratingChange]);
 
   useEffect(() => {
     return () => {
@@ -360,7 +343,6 @@ export function PreferenceForm({
       setError(null);
       setGenerationProgress(null);
       onItineraryGenerated(null);
-      setHasGeneratedItinerary(false);
       return;
     }
 
@@ -373,18 +355,15 @@ export function PreferenceForm({
     setEndTime("17:00");
     setBudgetLevel("medium");
     setTransportMode("walking");
-    setPreferredPace("moderate");
-    setMaxAttractions(5);
-    setNumberOfDays(1);
     setOpenInterestGroups([interestGroups[0].label]);
     setError(null);
     setGenerationProgress(null);
     setShowInterestValidation(false);
-    setHasGeneratedItinerary(false);
     lastRequestKeyRef.current = null;
     requestSequenceRef.current += 1;
     activeRequestIdRef.current = requestSequenceRef.current;
     abortControllerRef.current?.abort();
+    void onNumberOfDaysChange(1);
     onItineraryGenerated(null);
   }
 
@@ -397,8 +376,8 @@ export function PreferenceForm({
         <p className="eyebrow">Trip preferences</p>
         <h2>Plan your visit</h2>
         <p>
-          Tune the form around your available time, preferred pace, budget, and
-          Sarajevo interests.
+          Tune the form around your available time, budget, and Sarajevo
+          interests.
         </p>
       </div>
 
@@ -528,7 +507,7 @@ export function PreferenceForm({
                 role="radio"
                 aria-checked={numberOfDays === duration}
                 key={duration}
-                onClick={() => handleTripDurationChange(duration)}
+                onClick={() => void onNumberOfDaysChange(duration)}
                 disabled={isSubmitting}
               >
                 {duration}
@@ -566,35 +545,6 @@ export function PreferenceForm({
             <option value="driving">Driving</option>
           </select>
         </label>
-
-        <label className="field">
-          <span>Travel pace</span>
-          <select
-            value={preferredPace}
-            onChange={(event) => {
-              setPreferredPace(event.target.value as PreferredPace);
-              handlePreferencesChanged();
-            }}
-          >
-            <option value="relaxed">Relaxed</option>
-            <option value="moderate">Moderate</option>
-            <option value="fast">Fast</option>
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Max stops</span>
-          <input
-            type="number"
-            min="1"
-            max="12"
-            value={maxAttractions}
-            onChange={(event) => {
-              setMaxAttractions(Number(event.target.value));
-              handlePreferencesChanged();
-            }}
-          />
-        </label>
       </div>
 
       <div className="form-summary">
@@ -623,7 +573,7 @@ export function PreferenceForm({
           aria-label="Generate itinerary"
         >
           {submitButtonLabel}
-          {hasPendingChanges && !isSubmitting ? (
+          {hasPendingChanges && !isSubmitting && !isMultiDayPlan ? (
             <span className="pending-dot" aria-hidden="true" />
           ) : null}
         </button>
@@ -640,9 +590,6 @@ export function PreferenceForm({
             aria-label="Regenerate all days with current preferences"
           >
             Regenerate all days
-            {hasPendingChanges && !isSubmitting ? (
-              <span className="pending-dot" aria-hidden="true" />
-            ) : null}
           </button>
         ) : null}
 

@@ -127,7 +127,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const preferences: PlannerPreferences = parsedRequest.data.preferences;
+  const rawPreferences: PlannerPreferences = parsedRequest.data.preferences;
+  // Override maxAttractions with a value computed from the available time window.
+  // This lets the feasibility layer decide the real stop count without a UI cap.
+  const preferences: PlannerPreferences = {
+    ...rawPreferences,
+    maxAttractions: computeSmartMaxStops(rawPreferences),
+  };
   const excludedAttractionIds = new Set(parsedRequest.data.excludeAttractionIds);
   const mode = parsedRequest.data.mode ?? "adaptive";
   const weatherOverride = parsedRequest.data.weatherOverride;
@@ -263,6 +269,17 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+// Compute a generous stop ceiling from the available time window so the
+// feasibility layer — not a UI field — decides the real count.
+function computeSmartMaxStops(preferences: PlannerPreferences): number {
+  const availableMinutes =
+    timeToMinutes(preferences.endTime) - timeToMinutes(preferences.startTime);
+  const avgVisitMin = 45;
+  const avgTravelMin = preferences.transportMode === "walking" ? 15 : 10;
+  const smartMax = Math.floor(availableMinutes / (avgVisitMin + avgTravelMin));
+  return Math.max(1, Math.min(12, smartMax));
 }
 
 function createOverrideWeather(weatherOverride: "clear" | "rain"): WeatherInfo {
