@@ -64,6 +64,7 @@ const preferenceSchema = z
 
 const itineraryRequestSchema = z.object({
   preferences: preferenceSchema,
+  excludeAttractionIds: z.array(z.string().trim().min(1)).optional().default([]),
   // Evaluation-harness control parameters (all optional; absent = current behaviour).
   mode: z.enum(["adaptive", "static"]).optional(),
   weatherOverride: z.enum(["clear", "rain"]).optional(),
@@ -126,7 +127,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const preferences: PlannerPreferences = parsedRequest.data.preferences;
+  const rawPreferences: PlannerPreferences = parsedRequest.data.preferences;
+  // Override maxAttractions with a value computed from the available time window.
+  // This lets the feasibility layer decide the real stop count without a UI cap.
+  const preferences: PlannerPreferences = {
+    ...rawPreferences,
+    maxAttractions: computeSmartMaxStops(rawPreferences),
+  };
+  const excludedAttractionIds = new Set(parsedRequest.data.excludeAttractionIds);
   const mode = parsedRequest.data.mode ?? "adaptive";
   const weatherOverride = parsedRequest.data.weatherOverride;
   const recommender = parsedRequest.data.recommender ?? "content";
@@ -149,6 +157,34 @@ export async function POST(request: Request) {
         adaptation: createEmptyAdaptation({
           feasibilityStatus: "not_feasible",
         }),
+        selectedAttractionIds: [],
+        mode,
+        recommender,
+        weatherUsed: null,
+      });
+    }
+
+    const candidateAttractions =
+      excludedAttractionIds.size === 0
+        ? resolvedAttractions
+        : resolvedAttractions.filter(
+            (attraction) => !excludedAttractionIds.has(String(attraction.id))
+          );
+
+    if (candidateAttractions.length === 0) {
+      return NextResponse.json({
+        success: true,
+        itinerary: {
+          ...createEmptyItinerary(),
+          routing: createInsufficientRoutingMetadata(
+            preferences.transportMode
+          ),
+          transportMode: preferences.transportMode,
+        },
+        adaptation: createEmptyAdaptation({
+          feasibilityStatus: "not_feasible",
+        }),
+        selectedAttractionIds: [],
         mode,
         recommender,
         weatherUsed: null,
@@ -158,7 +194,7 @@ export async function POST(request: Request) {
     const { rankedAttractions, recommendationSource } = await getRankedCandidates(
       preferences,
       recommender,
-      resolvedAttractions
+      candidateAttractions
     );
 
     // Weather: static mode skips weather adaptation entirely so experiments are
@@ -176,13 +212,13 @@ export async function POST(request: Request) {
         ? { rankedAttractions, adaptation: createEmptyAdaptation() }
         : applyWeatherAdaptation(
             rankedAttractions,
-            resolvedAttractions,
+            candidateAttractions,
             weather,
             preferences.maxAttractions
           );
 
     const candidates = createItineraryCandidates(
-      resolvedAttractions,
+      candidateAttractions,
       weatherAdaptation.rankedAttractions
     );
     const feasibilityAdaptation = await adaptItineraryFeasibility(
@@ -216,6 +252,7 @@ export async function POST(request: Request) {
       success: true,
       itinerary: routedItinerary,
       adaptation,
+      selectedAttractionIds: getSelectedAttractionIds(routedItinerary),
       recommendationSource,
       mode,
       recommender,
@@ -232,6 +269,17 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+// Compute a generous stop ceiling from the available time window so the
+// feasibility layer — not a UI field — decides the real count.
+function computeSmartMaxStops(preferences: PlannerPreferences): number {
+  const availableMinutes =
+    timeToMinutes(preferences.endTime) - timeToMinutes(preferences.startTime);
+  const avgVisitMin = 45;
+  const avgTravelMin = preferences.transportMode === "walking" ? 15 : 10;
+  const smartMax = Math.floor(availableMinutes / (avgVisitMin + avgTravelMin));
+  return Math.max(1, Math.min(12, smartMax));
 }
 
 function createOverrideWeather(weatherOverride: "clear" | "rain"): WeatherInfo {
@@ -360,6 +408,10 @@ function createEmptyItinerary(): GeneratedItinerary {
     totalDuration: 0,
     feasibilityStatus: "infeasible",
   };
+}
+
+function getSelectedAttractionIds(itinerary: GeneratedItinerary): string[] {
+  return itinerary.items.map((item) => String(item.attraction.id));
 }
 
 function logItineraryRequest(preferences: PlannerPreferences): void {

@@ -17,3 +17,12 @@ export function AttractionSkeletonGrid() {
     </div>
   );
 }
+
+export function ItineraryLoader({ message }: { message: string }) {
+  return (
+    <div className="itinerary-loader" role="status" aria-live="polite">
+      <div className="itinerary-loader-ring" aria-hidden="true" />
+      <p className="itinerary-loader-message">{message}</p>
+    </div>
+  );
+}

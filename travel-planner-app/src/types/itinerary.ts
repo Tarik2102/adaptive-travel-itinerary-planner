@@ -112,6 +112,9 @@ export type ItineraryAdaptation = {
   trafficSimulation?: TrafficSimulationInfo;
   fallbackReason?: string;
   recommendationSource?: "ml" | "fallback";
+  // True when the itinerary is shorter than requested because the selected
+  // interest category has too few matching attractions to fill the day.
+  sparseCategory?: boolean;
 };
 
 export type TrafficAdaptRequest = {
@@ -146,13 +149,28 @@ export type TrafficAdaptResponse =
 export type ItineraryPlan = {
   itinerary: GeneratedItinerary;
   adaptation: ItineraryAdaptation;
+  selectedAttractionIds?: string[];
+  days?: ItineraryDayPlan[];
+};
+
+export type ItineraryDayPlan = {
+  dayNumber: number;
+  itinerary: GeneratedItinerary;
+  adaptation: ItineraryAdaptation;
+  selectedAttractionIds: string[];
+  hasFewerStopsThanRequested: boolean;
+  generatedPreferences: PlannerPreferences;
 };
 
 export type ItinerarySuccessResponse = {
   success: true;
   itinerary: GeneratedItinerary;
   adaptation: ItineraryAdaptation;
-  recommendationSource: "ml" | "fallback";
+  recommendationSource?: "ml" | "fallback";
+  selectedAttractionIds: string[];
+  mode?: "adaptive" | "static";
+  recommender?: "content" | "popularity" | "random";
+  weatherUsed?: unknown;
 };
 
 export type ItineraryErrorResponse = {
@@ -169,4 +187,5 @@ export type ItineraryResponse = ItineraryApiResponse;
 
 export type ItineraryRequest = {
   preferences: PlannerPreferences;
+  excludeAttractionIds?: string[];
 };

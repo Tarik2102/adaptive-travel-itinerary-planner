@@ -37,6 +37,7 @@ export function mergeAdaptations(
   const feasibilityStatus = findLastDefined(
     adaptations.map((adaptation) => adaptation.feasibilityStatus)
   );
+  const sparseCategory = adaptations.some((adaptation) => adaptation.sparseCategory === true);
 
   return {
     applied: adaptations.some((adaptation) => adaptation.applied),
@@ -46,6 +47,7 @@ export function mergeAdaptations(
     ...(replacedAttractions.length > 0 ? { replacedAttractions } : {}),
     ...(affectedAttractions.length > 0 ? { affectedAttractions } : {}),
     ...(feasibilityStatus ? { feasibilityStatus } : {}),
+    ...(sparseCategory ? { sparseCategory: true } : {}),
   };
 }
 
