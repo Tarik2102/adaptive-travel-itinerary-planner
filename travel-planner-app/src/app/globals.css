@@ -3609,6 +3609,11 @@ section[id] {
   color: var(--primary);
 }
 
+.day-plan-card-label-interests {
+  font-weight: 400;
+  color: var(--text-muted, #64748b);
+}
+
 .day-plan-card-meta {
   font-size: 0.8125rem;
   color: var(--text-muted, #64748b);
