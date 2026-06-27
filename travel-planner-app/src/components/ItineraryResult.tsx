@@ -202,6 +202,12 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+function formatDayInterests(interests: string[]): string | null {
+  if (!interests || interests.length === 0) return null;
+  if (interests.length <= 2) return interests.join(" + ");
+  return `${interests[0]}, ${interests[1]} +${interests.length - 2}`;
+}
+
 function formatStatus(status: GeneratedItinerary["feasibilityStatus"]) {
   if (status === "partial") return "Partial";
   if (status === "infeasible") return "Infeasible";
@@ -731,6 +737,7 @@ function DayPlanCard({
   const stopCount = day.itinerary.items.length;
   const duration = day.itinerary.totalDuration;
   const transport = day.generatedPreferences.transportMode;
+  const interestsLabel = formatDayInterests(day.generatedPreferences.interests);
 
   return (
     <div className={`day-plan-card${isOpen ? " day-plan-card-open" : ""}`} data-day-number={day.dayNumber}>
@@ -741,7 +748,12 @@ function DayPlanCard({
         aria-expanded={isOpen}
       >
         <div className="day-plan-card-header-main">
-          <span className="day-plan-card-label">Day {day.dayNumber} Plan</span>
+          <span className="day-plan-card-label">
+            Day {day.dayNumber} Plan
+            {interestsLabel && (
+              <span className="day-plan-card-label-interests"> ({interestsLabel})</span>
+            )}
+          </span>
           <span className="day-plan-card-meta">
             {stopCount} stop{stopCount !== 1 ? "s" : ""}
             {duration > 0 ? ` · ${formatDuration(duration)}` : ""}
