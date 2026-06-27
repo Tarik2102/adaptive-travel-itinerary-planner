@@ -362,9 +362,9 @@ function AdaptationCard({ adaptation }: { adaptation: ItineraryAdaptation }) {
   );
 }
 
-// Shared panel: summary stats + adaptation + map + clock + stop list.
+// Shared panel: summary stats + adaptation + map + clock + stop carousel.
 // Used for both single-day display and inside expanded day cards.
-// Clock state is local — unmounts naturally when a day card closes, resetting on re-open.
+// Clock state and activeStopIndex are local — unmount naturally when a day card closes.
 function ItineraryDetailPanel({
   itinerary,
   adaptation,
@@ -387,15 +387,18 @@ function ItineraryDetailPanel({
   const [dismissedBannerKeys, setDismissedBannerKeys] = useState<Set<string>>(
     new Set()
   );
+  const [activeStopIndex, setActiveStopIndex] = useState(0);
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const touchStartXRef = useRef(0);
 
-  // Reset clock whenever the itinerary data changes (new generation, Update Day, etc.)
+  // Reset clock and carousel whenever the itinerary data changes (new generation, Update Day, etc.)
   useEffect(() => {
     const newMin =
       parseTimeToMinutes(itinerary.items[0]?.plannedStartTime ?? "09:00") ?? 9 * 60;
     setSimTimeMinutes(newMin);
     setIsPlaying(false);
     setDismissedBannerKeys(new Set());
+    setActiveStopIndex(0);
     if (playIntervalRef.current) {
       clearInterval(playIntervalRef.current);
       playIntervalRef.current = null;
@@ -440,6 +443,48 @@ function ItineraryDetailPanel({
   function dismissBanner(key: string) {
     setDismissedBannerKeys((prev) => new Set([...prev, key]));
   }
+
+  // Map marker click → carousel sync
+  const handleStopClick = useCallback((index: number) => {
+    setActiveStopIndex(index);
+  }, []);
+
+  // Mobile touch swipe → carousel navigation
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const dx = touchStartXRef.current - e.changedTouches[0].clientX;
+      if (Math.abs(dx) > 44) {
+        setActiveStopIndex((prev) =>
+          dx > 0
+            ? Math.min(prev + 1, items.length - 1)
+            : Math.max(prev - 1, 0)
+        );
+      }
+    },
+    [items.length]
+  );
+
+  // Active stop data
+  const activeItem = items[activeStopIndex] ?? items[0];
+  const activeImageSrc =
+    activeItem?.attraction.thumbnail_url ?? activeItem?.attraction.image_url ?? null;
+  const activePlaceholderClass = activeItem
+    ? getItineraryPlaceholderClass(activeItem.attraction.category)
+    : "placeholder-default";
+  const activeNextStop =
+    activeItem && activeStopIndex < items.length - 1
+      ? items[activeStopIndex + 1]
+      : null;
+  const activeReminderTime = activeNextStop
+    ? computeReminderTime(activeItem.plannedEndTime)
+    : null;
+  const activeStopStatus = activeItem
+    ? getStopStatus(activeItem, simTimeMinutes)
+    : "upcoming";
 
   return (
     <>
@@ -496,6 +541,8 @@ function ItineraryDetailPanel({
             routeGeometry={itinerary.routeGeometry}
             routing={itinerary.routing}
             transportMode={itinerary.transportMode}
+            activeStopIndex={activeStopIndex}
+            onStopClick={handleStopClick}
           />
 
           {/* ── Simulated trip clock ── */}
@@ -591,40 +638,67 @@ function ItineraryDetailPanel({
             </div>
           ) : null}
 
-          {/* ── Stop list with clock-driven status ── */}
-          <div className="itinerary-list">
-            {items.map((item, index) => {
-              const imageSrc =
-                item.attraction.thumbnail_url ?? item.attraction.image_url ?? null;
-              const placeholderClass = getItineraryPlaceholderClass(
-                item.attraction.category
-              );
-              const nextStop =
-                index < items.length - 1 ? items[index + 1] : null;
-              const reminderTime = nextStop
-                ? computeReminderTime(item.plannedEndTime)
-                : null;
-              const stopStatus = getStopStatus(item, simTimeMinutes);
+          {/* ── Stop carousel ── */}
+          {activeItem ? (
+            <div className="stop-carousel">
+              {/* Navigation bar */}
+              <div className="stop-carousel-nav" aria-label="Stop navigation">
+                <button
+                  type="button"
+                  className="stop-carousel-btn"
+                  onClick={() => setActiveStopIndex((i) => Math.max(0, i - 1))}
+                  disabled={activeStopIndex === 0}
+                  aria-label="Previous stop"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <span className="stop-carousel-counter">
+                  Stop {activeStopIndex + 1} of {items.length}
+                </span>
+                <button
+                  type="button"
+                  className="stop-carousel-btn"
+                  onClick={() =>
+                    setActiveStopIndex((i) => Math.min(items.length - 1, i + 1))
+                  }
+                  disabled={activeStopIndex === items.length - 1}
+                  aria-label="Next stop"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <path d="M5 2L10 7L5 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
 
-              return (
+              {/* Swipeable card area (touch swipe on mobile) */}
+              <div
+                className="stop-carousel-card-wrap"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                aria-live="polite"
+                aria-atomic="true"
+              >
                 <button
                   type="button"
                   className={`itinerary-card itinerary-card-clickable${
-                    stopStatus !== "upcoming" ? ` itinerary-card-${stopStatus}` : ""
+                    activeStopStatus !== "upcoming"
+                      ? ` itinerary-card-${activeStopStatus}`
+                      : ""
                   }`}
-                  key={item.attraction.id}
-                  onClick={() => onAttractionClick(item.attraction)}
-                  aria-label={`View details for ${item.attraction.name}`}
+                  onClick={() => onAttractionClick(activeItem.attraction)}
+                  aria-label={`View details for ${activeItem.attraction.name}`}
                 >
-                  {imageSrc ? (
+                  {activeImageSrc ? (
                     <div className="itinerary-card-image">
                       <Image
-                        src={imageSrc}
-                        alt={item.attraction.name}
+                        src={activeImageSrc}
+                        alt={activeItem.attraction.name}
                         fill
                         sizes="(max-width: 760px) 100vw, 640px"
                         style={{ objectFit: "cover" }}
-                        unoptimized={isWikimediaUrl(imageSrc)}
+                        unoptimized={isWikimediaUrl(activeImageSrc)}
                         onError={(e) => {
                           const target = e.currentTarget as HTMLImageElement;
                           target.style.display = "none";
@@ -637,20 +711,22 @@ function ItineraryDetailPanel({
                             );
                             parent.classList.add(
                               "itinerary-card-image",
-                              placeholderClass
+                              activePlaceholderClass
                             );
                             const label = document.createElement("span");
                             label.className = "attraction-placeholder-label";
-                            label.textContent = toTitleCase(item.attraction.category);
+                            label.textContent = toTitleCase(
+                              activeItem.attraction.category
+                            );
                             parent.appendChild(label);
                           }
                         }}
                       />
                     </div>
                   ) : (
-                    <div className={`itinerary-card-image ${placeholderClass}`}>
+                    <div className={`itinerary-card-image ${activePlaceholderClass}`}>
                       <span className="attraction-placeholder-label">
-                        {toTitleCase(item.attraction.category)}
+                        {toTitleCase(activeItem.attraction.category)}
                       </span>
                     </div>
                   )}
@@ -658,32 +734,35 @@ function ItineraryDetailPanel({
                   <div className="itinerary-card-top">
                     <div>
                       <p className="attraction-category">
-                        Stop {index + 1} - {toTitleCase(item.attraction.category)}
+                        Stop {activeStopIndex + 1} -{" "}
+                        {toTitleCase(activeItem.attraction.category)}
                       </p>
-                      <h3>{item.attraction.name}</h3>
+                      <h3>{activeItem.attraction.name}</h3>
                     </div>
-                    <span className="rating-pill">{formatScore(item.score)}</span>
+                    <span className="rating-pill">{formatScore(activeItem.score)}</span>
                   </div>
 
-                  <p className="itinerary-reason">{item.reason}</p>
+                  <p className="itinerary-reason">{activeItem.reason}</p>
 
                   <div className="badge-row">
-                    <Badge tone="blue">{toTitleCase(item.attraction.category)}</Badge>
+                    <Badge tone="blue">
+                      {toTitleCase(activeItem.attraction.category)}
+                    </Badge>
                     <Badge tone="emerald">
-                      {item.plannedStartTime} - {item.plannedEndTime}
+                      {activeItem.plannedStartTime} - {activeItem.plannedEndTime}
                     </Badge>
                     <Badge tone="slate">
-                      Visit {item.attraction.estimated_visit_duration} min
+                      Visit {activeItem.attraction.estimated_visit_duration} min
                     </Badge>
                   </div>
 
-                  {reminderTime && nextStop ? (
+                  {activeReminderTime && activeNextStop ? (
                     <p
                       className="itinerary-leave-reminder"
-                      aria-label={`Leave reminder at ${reminderTime}: prepare to head to ${nextStop.attraction.name}`}
+                      aria-label={`Leave reminder at ${activeReminderTime}: prepare to head to ${activeNextStop.attraction.name}`}
                     >
-                      Leave reminder · {reminderTime} — Prepare to head to{" "}
-                      {nextStop.attraction.name}
+                      Leave reminder · {activeReminderTime} — Prepare to head to{" "}
+                      {activeNextStop.attraction.name}
                     </p>
                   ) : null}
 
@@ -691,24 +770,24 @@ function ItineraryDetailPanel({
                     <div>
                       <dt>Travel from previous</dt>
                       <dd>
-                        {item.travelTimeFromPrevious === 0
+                        {activeItem.travelTimeFromPrevious === 0
                           ? "0 min"
-                          : item.legTransport
-                            ? `${item.legTransport === "walking" ? "Walk" : "Drive"} · ${item.travelTimeFromPrevious} min`
-                            : `${item.travelTimeFromPrevious} min`}
+                          : activeItem.legTransport
+                            ? `${activeItem.legTransport === "walking" ? "Walk" : "Drive"} · ${activeItem.travelTimeFromPrevious} min`
+                            : `${activeItem.travelTimeFromPrevious} min`}
                       </dd>
                     </div>
                     <div>
                       <dt>Planned time</dt>
                       <dd>
-                        {item.plannedStartTime} - {item.plannedEndTime}
+                        {activeItem.plannedStartTime} - {activeItem.plannedEndTime}
                       </dd>
                     </div>
                   </dl>
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          ) : null}
         </>
       )}
     </>

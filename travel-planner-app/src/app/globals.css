@@ -1128,6 +1128,7 @@ section[id] {
   display: grid;
   gap: 4px;
   min-width: 160px;
+  max-width: 200px;
   color: var(--foreground);
 }
 
@@ -1138,6 +1139,63 @@ section[id] {
 .itinerary-map-popup span {
   color: var(--muted);
   font-size: 0.86rem;
+}
+
+.itinerary-map-popup-image {
+  display: block;
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 0;
+  margin: 0;
+}
+
+/* ── Leaflet popup: flush image + close-button overlay ──────────────────────
+   :has() scopes every override to only our custom .itinerary-map-popup so
+   other map popups (if any) are unaffected. */
+
+/* Strip Leaflet's default wrapper padding and content margin.
+   overflow:hidden lets the wrapper's own border-radius clip the image. */
+.leaflet-popup-content-wrapper:has(.itinerary-map-popup) {
+  padding: 0;
+  overflow: hidden;
+}
+.leaflet-popup-content:has(.itinerary-map-popup) {
+  margin: 0;
+}
+
+/* Zero the grid gap; apply padding to each text child individually instead */
+.leaflet-popup-content:has(.itinerary-map-popup) .itinerary-map-popup {
+  gap: 0;
+}
+.leaflet-popup-content:has(.itinerary-map-popup) .itinerary-map-popup strong {
+  padding: 9px 12px 3px;
+}
+.leaflet-popup-content:has(.itinerary-map-popup) .itinerary-map-popup span {
+  padding: 1px 12px 0;
+}
+.leaflet-popup-content:has(.itinerary-map-popup) .itinerary-map-popup span:last-child {
+  padding-bottom: 9px;
+}
+
+/* Close button: repositioned to top-right corner, over the image.
+   Dark semi-transparent pill keeps the × legible on any photo or placeholder. */
+.leaflet-popup:has(.itinerary-map-popup) .leaflet-popup-close-button {
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  font-size: 15px;
+  color: #ffffff;
+  background: rgba(6, 28, 43, 0.52);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  z-index: 2;
+}
+.leaflet-popup:has(.itinerary-map-popup) .leaflet-popup-close-button:hover {
+  background: rgba(6, 28, 43, 0.78);
+  color: #ffffff;
 }
 
 .itinerary-card {
@@ -1448,6 +1506,79 @@ section[id] {
 @media (prefers-reduced-motion: reduce) {
   .trip-banner {
     animation: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   STOP CAROUSEL
+═══════════════════════════════════════════════════════ */
+
+.stop-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stop-carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stop-carousel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  background: var(--surface);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.stop-carousel-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+}
+
+.stop-carousel-btn:focus-visible {
+  outline: 3px solid rgba(15, 103, 177, 0.22);
+  outline-offset: 2px;
+}
+
+.stop-carousel-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.stop-carousel-counter {
+  flex: 1;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--muted);
+  user-select: none;
+}
+
+.stop-carousel-card-wrap {
+  /* Prevent text selection during touch swipe */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 760px) {
+  .stop-carousel-btn {
+    width: 40px;
+    height: 40px;
   }
 }
 
