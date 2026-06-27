@@ -13,6 +13,8 @@ export type ItineraryMapProps = {
   transportMode?: TransportMode;
   routeGeometry?: RouteGeometry;
   routing?: RoutingMetadata;
+  activeStopIndex?: number;
+  onStopClick?: (index: number) => void;
 };
 
 const ItineraryMapClient = dynamic<ItineraryMapProps>(
@@ -41,6 +43,8 @@ export function ItineraryMap({
   routing,
   transportMode,
   routeGeometry,
+  activeStopIndex,
+  onStopClick,
 }: ItineraryMapProps) {
   if (items.length === 0) {
     return null;
@@ -52,6 +56,8 @@ export function ItineraryMap({
       routing={routing}
       routeGeometry={routeGeometry}
       transportMode={transportMode}
+      activeStopIndex={activeStopIndex}
+      onStopClick={onStopClick}
     />
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import L, { type LatLngExpression } from "leaflet";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   LayersControl,
   MapContainer,
@@ -26,6 +26,8 @@ type ItineraryMapStop = {
   name: string;
   category: string | null;
   visitDuration: number | null;
+  timeWindow: string | null;
+  imageUrl: string | null;
   position: [number, number];
 };
 
@@ -60,6 +62,13 @@ function getVisitDuration(item: ItineraryItem) {
   return Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null;
 }
 
+function getTimeWindow(item: ItineraryItem): string | null {
+  const start = item.plannedStartTime;
+  const end = item.plannedEndTime;
+  if (!start || !end || !start.includes(":") || !end.includes(":")) return null;
+  return `${start} - ${end}`;
+}
+
 function buildStops(items: ItineraryItem[]): ItineraryMapStop[] {
   return items.flatMap((item, index) => {
     const latitude = toFiniteCoordinate(item.attraction.latitude);
@@ -84,6 +93,8 @@ function buildStops(items: ItineraryItem[]): ItineraryMapStop[] {
         name: item.attraction.name,
         category: category.length > 0 ? category : null,
         visitDuration: getVisitDuration(item),
+        timeWindow: getTimeWindow(item),
+        imageUrl: item.attraction.thumbnail_url ?? item.attraction.image_url ?? null,
         position: [latitude, longitude],
       },
     ];
@@ -149,21 +160,57 @@ function FitMapBounds({ positions }: { positions: LatLngExpression[] }) {
   return null;
 }
 
-function NumberedMarker({ stop }: { stop: ItineraryMapStop }) {
+function NumberedMarker({
+  stop,
+  isActive,
+  onClick,
+}: {
+  stop: ItineraryMapStop;
+  isActive: boolean;
+  onClick: () => void;
+}) {
   const icon = useMemo(() => createNumberedIcon(stop.order), [stop.order]);
+  const markerRef = useRef<L.Marker | null>(null);
+  const map = useMap();
+  const hasMounted = useRef(false);
+
+  useEffect(() => {
+    const isFirstMount = !hasMounted.current;
+    hasMounted.current = true;
+    if (!isActive) return;
+    markerRef.current?.openPopup();
+    // Skip pan on initial mount — FitMapBounds handles the initial viewport.
+    if (!isFirstMount) {
+      map.panTo(stop.position, { animate: true, duration: 0.4 });
+    }
+  }, [isActive, map, stop.position]);
 
   return (
-    <Marker icon={icon} position={stop.position}>
+    <Marker
+      ref={markerRef}
+      icon={icon}
+      position={stop.position}
+      eventHandlers={{ click: onClick }}
+    >
       <Popup>
         <div className="itinerary-map-popup">
-          <strong>
-            Stop {stop.order}: {stop.name}
-          </strong>
-          <span>Order: {stop.order}</span>
-          {stop.category ? (
-            <span>Category: {toTitleCase(stop.category)}</span>
+          {stop.imageUrl ? (
+            <img
+              src={stop.imageUrl}
+              alt={stop.name}
+              className="itinerary-map-popup-image"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
           ) : null}
-          {stop.visitDuration ? (
+          <strong>{stop.name}</strong>
+          {stop.category ? (
+            <span>{toTitleCase(stop.category)}</span>
+          ) : null}
+          {stop.timeWindow ? (
+            <span>Visit: {stop.timeWindow}</span>
+          ) : stop.visitDuration ? (
             <span>Visit: {stop.visitDuration} min</span>
           ) : null}
         </div>
@@ -244,6 +291,8 @@ export function ItineraryMapClient({
   routing,
   routeGeometry,
   transportMode,
+  activeStopIndex = 0,
+  onStopClick,
 }: ItineraryMapProps) {
   const stops = useMemo(() => buildStops(items), [items]);
   const stopPositions = useMemo(
@@ -333,8 +382,13 @@ export function ItineraryMapClient({
             />
           ) : null
         )}
-        {stops.map((stop) => (
-          <NumberedMarker key={stop.id} stop={stop} />
+        {stops.map((stop, index) => (
+          <NumberedMarker
+            key={stop.id}
+            stop={stop}
+            isActive={index === activeStopIndex}
+            onClick={() => onStopClick?.(index)}
+          />
         ))}
       </MapContainer>
     </div>
