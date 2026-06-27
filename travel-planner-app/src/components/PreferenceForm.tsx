@@ -25,6 +25,7 @@ import {
 } from "@/types/preference";
 
 type PreferenceFormProps = {
+  activeDayNumber: number | null;
   hasPendingChanges: boolean;
   isMultiDayPlan: boolean;
   loadPreferences: { prefs: PlannerPreferences } | null;
@@ -87,6 +88,7 @@ function buildItineraryDayPlan(
 }
 
 export function PreferenceForm({
+  activeDayNumber,
   hasPendingChanges,
   isMultiDayPlan,
   loadPreferences,
@@ -404,6 +406,11 @@ export function PreferenceForm({
           Tune the form around your available time, budget, and Sarajevo
           interests.
         </p>
+        {isMultiDayPlan && activeDayNumber !== null ? (
+          <div className="active-day-context">
+            <span className="active-day-badge">Editing Day {activeDayNumber}</span>
+          </div>
+        ) : null}
       </div>
 
       <fieldset className="form-fieldset">
