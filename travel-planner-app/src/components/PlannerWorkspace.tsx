@@ -91,6 +91,10 @@ export function PlannerWorkspace() {
     isMultiDayPlan && itineraryPlan?.days
       ? Math.min(activeDayIndex, itineraryPlan.days.length - 1)
       : 0;
+  const activeDayNumber =
+    isMultiDayPlan && itineraryPlan?.days
+      ? (itineraryPlan.days[visibleActiveDayIndex]?.dayNumber ?? null)
+      : null;
   const activeDayGeneratedPrefs =
     isMultiDayPlan && itineraryPlan?.days
       ? (itineraryPlan.days[visibleActiveDayIndex]?.generatedPreferences ?? null)
@@ -402,6 +406,7 @@ export function PlannerWorkspace() {
     <section className="page-container planner-layout">
       <aside className="planner-form-column">
         <PreferenceForm
+          activeDayNumber={activeDayNumber}
           hasPendingChanges={hasPendingChanges}
           isMultiDayPlan={isMultiDayPlan}
           loadPreferences={loadPreferences}

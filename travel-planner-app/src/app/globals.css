@@ -625,6 +625,22 @@ section[id] {
   line-height: 1.6;
 }
 
+.active-day-context {
+  margin-top: 14px;
+}
+
+.active-day-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  border-radius: 6px;
+  padding: 4px 10px;
+  letter-spacing: 0.01em;
+}
+
 .form-fieldset {
   margin-top: 24px;
   border: 0;
@@ -3693,6 +3709,12 @@ section[id] {
 .day-plan-card-open {
   border-color: rgba(15, 103, 177, 0.38);
   box-shadow: 0 4px 20px rgba(15, 103, 177, 0.09);
+}
+
+/* Active (currently-editing) day — visible collapsed or expanded */
+.day-plan-card-active {
+  border-left: 3px solid var(--primary);
+  background: rgba(15, 103, 177, 0.025);
 }
 
 /* Header button */

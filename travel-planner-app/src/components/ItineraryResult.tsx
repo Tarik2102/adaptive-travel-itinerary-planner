@@ -855,7 +855,7 @@ function DayPlanCard({
   const interestsLabel = formatDayInterests(day.generatedPreferences.interests);
 
   return (
-    <div className={`day-plan-card${isOpen ? " day-plan-card-open" : ""}`} data-day-number={day.dayNumber}>
+    <div className={`day-plan-card${isActive ? " day-plan-card-active" : ""}${isOpen ? " day-plan-card-open" : ""}`} data-day-number={day.dayNumber}>
       <button
         type="button"
         className="day-plan-card-header"
