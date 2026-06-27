@@ -187,6 +187,28 @@ function getStopStatus(
   return "upcoming";
 }
 
+// Returns which stop index the clock points to at the given simulated time.
+// During travel gaps (between stops), returns the next upcoming stop so the
+// carousel stays forward-looking rather than lingering on the departed stop.
+function getClockDrivenStopIndex(simTimeMinutes: number, items: ItineraryItem[]): number {
+  for (let i = 0; i < items.length; i++) {
+    const startMin = parseTimeToMinutes(items[i].plannedStartTime);
+    const endMin = parseTimeToMinutes(items[i].plannedEndTime);
+    if (startMin !== null && endMin !== null && simTimeMinutes >= startMin && simTimeMinutes < endMin) {
+      return i;
+    }
+  }
+  // Gap: find the next upcoming stop
+  for (let i = 0; i < items.length; i++) {
+    const startMin = parseTimeToMinutes(items[i].plannedStartTime);
+    if (startMin !== null && simTimeMinutes < startMin) {
+      return i;
+    }
+  }
+  // Past all stops: stay on the last
+  return Math.max(0, items.length - 1);
+}
+
 function formatScore(score: number) {
   return `${Math.round(score * 100)}% match`;
 }
@@ -390,6 +412,7 @@ function ItineraryDetailPanel({
   const [activeStopIndex, setActiveStopIndex] = useState(0);
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartXRef = useRef(0);
+  const effectiveStopIndexRef = useRef(0);
 
   // Reset clock and carousel whenever the itinerary data changes (new generation, Update Day, etc.)
   useEffect(() => {
@@ -417,7 +440,7 @@ function ItineraryDetailPanel({
         const next = prev + 1;
         if (next >= rangeMax) {
           setIsPlaying(false);
-          return rangeMax;
+          return rangeMin;
         }
         return next;
       });
@@ -428,7 +451,12 @@ function ItineraryDetailPanel({
         playIntervalRef.current = null;
       }
     };
-  }, [isPlaying, rangeMax]);
+  }, [isPlaying, rangeMax, rangeMin]);
+
+  // Derive active stop from clock when playing; use manual state when paused.
+  const clockDrivenIndex = getClockDrivenStopIndex(simTimeMinutes, items);
+  const effectiveStopIndex = isPlaying ? clockDrivenIndex : activeStopIndex;
+  effectiveStopIndexRef.current = effectiveStopIndex;
 
   const reminderWindows = useMemo(() => computeReminderWindows(items), [items]);
   const rawBanner = getActiveBanner(simTimeMinutes, reminderWindows);
@@ -444,8 +472,9 @@ function ItineraryDetailPanel({
     setDismissedBannerKeys((prev) => new Set([...prev, key]));
   }
 
-  // Map marker click → carousel sync
+  // Map marker click → pause clock and jump carousel to that stop
   const handleStopClick = useCallback((index: number) => {
+    setIsPlaying(false);
     setActiveStopIndex(index);
   }, []);
 
@@ -458,26 +487,26 @@ function ItineraryDetailPanel({
     (e: React.TouchEvent) => {
       const dx = touchStartXRef.current - e.changedTouches[0].clientX;
       if (Math.abs(dx) > 44) {
-        setActiveStopIndex((prev) =>
-          dx > 0
-            ? Math.min(prev + 1, items.length - 1)
-            : Math.max(prev - 1, 0)
+        const current = effectiveStopIndexRef.current;
+        setIsPlaying(false);
+        setActiveStopIndex(
+          dx > 0 ? Math.min(current + 1, items.length - 1) : Math.max(current - 1, 0)
         );
       }
     },
     [items.length]
   );
 
-  // Active stop data
-  const activeItem = items[activeStopIndex] ?? items[0];
+  // Active stop data (driven by effectiveStopIndex = clock when playing, manual when paused)
+  const activeItem = items[effectiveStopIndex] ?? items[0];
   const activeImageSrc =
     activeItem?.attraction.thumbnail_url ?? activeItem?.attraction.image_url ?? null;
   const activePlaceholderClass = activeItem
     ? getItineraryPlaceholderClass(activeItem.attraction.category)
     : "placeholder-default";
   const activeNextStop =
-    activeItem && activeStopIndex < items.length - 1
-      ? items[activeStopIndex + 1]
+    activeItem && effectiveStopIndex < items.length - 1
+      ? items[effectiveStopIndex + 1]
       : null;
   const activeReminderTime = activeNextStop
     ? computeReminderTime(activeItem.plannedEndTime)
@@ -541,7 +570,7 @@ function ItineraryDetailPanel({
             routeGeometry={itinerary.routeGeometry}
             routing={itinerary.routing}
             transportMode={itinerary.transportMode}
-            activeStopIndex={activeStopIndex}
+            activeStopIndex={effectiveStopIndex}
             onStopClick={handleStopClick}
           />
 
@@ -561,7 +590,14 @@ function ItineraryDetailPanel({
               <button
                 type="button"
                 className="trip-clock-play-btn"
-                onClick={() => setIsPlaying((p) => !p)}
+                onClick={() => {
+                  if (isPlaying) {
+                    setActiveStopIndex(clockDrivenIndex);
+                    setIsPlaying(false);
+                  } else {
+                    setIsPlaying(true);
+                  }
+                }}
                 aria-label={isPlaying ? "Pause trip clock" : "Play trip clock"}
               >
                 {isPlaying ? (
@@ -596,8 +632,10 @@ function ItineraryDetailPanel({
                 step={1}
                 style={{ "--fill": `${sliderFillPct}%` } as React.CSSProperties}
                 onChange={(e) => {
+                  const newTime = Number(e.target.value);
                   setIsPlaying(false);
-                  setSimTimeMinutes(Number(e.target.value));
+                  setSimTimeMinutes(newTime);
+                  setActiveStopIndex(getClockDrivenStopIndex(newTime, items));
                 }}
                 aria-label="Trip time scrubber"
                 aria-valuenow={simTimeMinutes}
@@ -646,8 +684,8 @@ function ItineraryDetailPanel({
                 <button
                   type="button"
                   className="stop-carousel-btn"
-                  onClick={() => setActiveStopIndex((i) => Math.max(0, i - 1))}
-                  disabled={activeStopIndex === 0}
+                  onClick={() => { setIsPlaying(false); setActiveStopIndex(Math.max(0, effectiveStopIndex - 1)); }}
+                  disabled={effectiveStopIndex === 0}
                   aria-label="Previous stop"
                 >
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -655,15 +693,13 @@ function ItineraryDetailPanel({
                   </svg>
                 </button>
                 <span className="stop-carousel-counter">
-                  Stop {activeStopIndex + 1} of {items.length}
+                  Stop {effectiveStopIndex + 1} of {items.length}
                 </span>
                 <button
                   type="button"
                   className="stop-carousel-btn"
-                  onClick={() =>
-                    setActiveStopIndex((i) => Math.min(items.length - 1, i + 1))
-                  }
-                  disabled={activeStopIndex === items.length - 1}
+                  onClick={() => { setIsPlaying(false); setActiveStopIndex(Math.min(items.length - 1, effectiveStopIndex + 1)); }}
+                  disabled={effectiveStopIndex === items.length - 1}
                   aria-label="Next stop"
                 >
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -734,7 +770,7 @@ function ItineraryDetailPanel({
                   <div className="itinerary-card-top">
                     <div>
                       <p className="attraction-category">
-                        Stop {activeStopIndex + 1} -{" "}
+                        Stop {effectiveStopIndex + 1} -{" "}
                         {toTitleCase(activeItem.attraction.category)}
                       </p>
                       <h3>{activeItem.attraction.name}</h3>
