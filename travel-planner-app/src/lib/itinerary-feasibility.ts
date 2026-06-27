@@ -77,6 +77,9 @@ type LogicalCandidatePool = {
 type RouteAwareSelectionResult = {
   candidates: ItineraryCandidate[];
   diagnostics: RouteAwareSelectionDiagnostics;
+  // True when the loop ended early because no relevant candidates remained,
+  // producing a shorter itinerary rather than padding with off-interest stops.
+  sparseCategory: boolean;
 };
 
 type TravelTimeCache = Map<string, number>;
@@ -367,6 +370,8 @@ export async function adaptItineraryFeasibility(
     { preserveCandidateOrder: true }
   );
 
+  const { sparseCategory } = routeAwareSelection;
+
   if (itinerary.items.length === 0) {
     logRouteAwareSelection(
       preferences,
@@ -381,6 +386,7 @@ export async function adaptItineraryFeasibility(
       },
       adaptation: createEmptyAdaptation({
         feasibilityStatus: "not_feasible",
+        ...(sparseCategory ? { sparseCategory: true } : {}),
       }),
     };
   }
@@ -399,6 +405,7 @@ export async function adaptItineraryFeasibility(
       },
       adaptation: createEmptyAdaptation({
         feasibilityStatus: "feasible",
+        ...(sparseCategory ? { sparseCategory: true } : {}),
       }),
     };
   }
@@ -439,6 +446,7 @@ export async function adaptItineraryFeasibility(
     reasons: removedAttractions.length > 0 ? [REMOVAL_REASON] : [],
     ...(removedAttractions.length > 0 ? { removedAttractions } : {}),
     feasibilityStatus: adjustedSuccessfully ? "adjusted" : "not_feasible",
+    ...(sparseCategory ? { sparseCategory: true } : {}),
   });
 
   logRouteAwareSelection(
@@ -593,6 +601,7 @@ function selectRouteAwareCandidates(
   let selectedDuration = 0;
   let foodCafeStopsSelected = 0;
   let previousSelectedWasFoodCafe = false;
+  let sparseCategory = false;
   const coveredInterestCounts = new Map<string, number>();
   const primaryCategoryCounts = new Map<string, number>();
 
@@ -641,6 +650,14 @@ function selectRouteAwareCandidates(
       diagnostics,
       currentStopName
     );
+
+    // No relevant candidates remain — stop rather than padding with
+    // attractions that match none of the selected interests.
+    if (logicalCandidatePool.candidates.length === 0) {
+      sparseCategory = true;
+      break;
+    }
+
     const bestCandidate = logicalCandidatePool.candidates.reduce(
       findBetterRouteAwareCandidate
     );
@@ -707,6 +724,7 @@ function selectRouteAwareCandidates(
   return {
     candidates: selectedCandidates,
     diagnostics,
+    sparseCategory,
   };
 }
 
@@ -892,9 +910,11 @@ function getLogicalCandidatePool(
     };
   }
 
+  // No remaining candidates match any selected interest. Return empty so the
+  // caller stops selection rather than padding with off-interest attractions.
   return {
-    candidates: eligibleCandidates.length > 0 ? eligibleCandidates : candidates,
-    usedFallback: context.slotInterest !== null,
+    candidates: [],
+    usedFallback: false,
   };
 }
 

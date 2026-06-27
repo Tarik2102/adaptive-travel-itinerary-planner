@@ -469,6 +469,12 @@ function ItineraryDetailPanel({
         <p className="recommendation-source-note">Fallback recommendations</p>
       ) : null}
 
+      {adaptation?.sparseCategory ? (
+        <p className="recommendation-source-note">
+          Showing all available stops for your selected interest — fewer stops available for this category.
+        </p>
+      ) : null}
+
       {adaptation ? <AdaptationCard adaptation={adaptation} /> : null}
 
       {items.length === 0 ? (

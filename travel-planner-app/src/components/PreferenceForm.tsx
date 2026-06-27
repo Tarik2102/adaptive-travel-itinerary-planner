@@ -113,6 +113,7 @@ export function PreferenceForm({
   const lastRequestKeyRef = useRef<string | null>(null);
   const activeRequestIdRef = useRef(0);
   const requestSequenceRef = useRef(0);
+  const autoRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const allInterestsSelected = interests.length === travelInterestOptions.length;
   const selectedInterestSummary = interests.join(", ");
   const interestValidationError =
@@ -327,6 +328,30 @@ export function PreferenceForm({
   useEffect(() => {
     onGeneratingChange?.(isSubmitting, generationProgress);
   }, [isSubmitting, generationProgress, onGeneratingChange]);
+
+  // Single-day auto-regeneration: debounce-trigger when preferences change after a plan exists.
+  // Guard: skip for multi-day (those use explicit "Update this day" / "Regenerate all days"),
+  // while submitting, and after an error (user must change a preference to clear the error first).
+  useEffect(() => {
+    if (isMultiDayPlan || !hasPendingChanges || isSubmitting || error !== null) {
+      if (autoRegenTimerRef.current) {
+        clearTimeout(autoRegenTimerRef.current);
+        autoRegenTimerRef.current = null;
+      }
+      return;
+    }
+    if (autoRegenTimerRef.current) clearTimeout(autoRegenTimerRef.current);
+    autoRegenTimerRef.current = setTimeout(() => {
+      autoRegenTimerRef.current = null;
+      void requestItinerary(preferences);
+    }, 1200);
+    return () => {
+      if (autoRegenTimerRef.current) {
+        clearTimeout(autoRegenTimerRef.current);
+        autoRegenTimerRef.current = null;
+      }
+    };
+  }, [error, hasPendingChanges, isMultiDayPlan, isSubmitting, preferences, requestItinerary]);
 
   useEffect(() => {
     return () => {

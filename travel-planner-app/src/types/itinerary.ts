@@ -112,6 +112,9 @@ export type ItineraryAdaptation = {
   trafficSimulation?: TrafficSimulationInfo;
   fallbackReason?: string;
   recommendationSource?: "ml" | "fallback";
+  // True when the itinerary is shorter than requested because the selected
+  // interest category has too few matching attractions to fill the day.
+  sparseCategory?: boolean;
 };
 
 export type TrafficAdaptRequest = {
