@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { AttractionDetailsModal } from "@/components/AttractionDetailsModal";
 import { Badge } from "@/components/Badge";
@@ -12,6 +12,7 @@ import type {
   GeneratedItinerary,
   ItineraryAdaptation,
   ItineraryDayPlan,
+  ItineraryItem,
 } from "@/types/itinerary";
 
 type ItineraryResultProps = {
@@ -62,6 +63,128 @@ function toTitleCase(value: string) {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
+}
+
+// ── Static leave-reminder (per-card helper line) ────────────────────────────
+const LEAVE_REMINDER_LEAD_MINUTES = 10;
+
+// ── Simulated trip clock ─────────────────────────────────────────────────────
+/** Real milliseconds per simulated minute (20× speed: 10-hr day ≈ 30 s). */
+const SIM_TICK_MS = 50;
+
+/** Extra buffer (min) added on top of travel time for the SOON reminder. */
+const REMINDER_BUFFER_MINUTES = 5;
+
+// ── Shared time utilities ────────────────────────────────────────────────────
+function parseTimeToMinutes(timeStr: string): number | null {
+  const [hourStr, minStr] = timeStr.split(":");
+  const hour = Number(hourStr);
+  const minute = Number(minStr);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return hour * 60 + minute;
+}
+
+function minutesToTimeStr(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function computeReminderTime(plannedEndTime: string): string | null {
+  const totalMinutes = parseTimeToMinutes(plannedEndTime);
+  if (totalMinutes === null) return null;
+  const result = totalMinutes - LEAVE_REMINDER_LEAD_MINUTES;
+  if (result < 0) return null;
+  return minutesToTimeStr(result);
+}
+
+// ── Travel-aware reminder windows ────────────────────────────────────────────
+type ReminderWindow = {
+  stopIndex: number;
+  currentStopName: string;
+  nextStopName: string;
+  /** Simulated time (min since midnight) when the SOON banner should appear. */
+  soonTime: number;
+  /** Simulated time (min since midnight) when departure is due — the NOW threshold. */
+  departureTime: number;
+  /** Simulated time (min since midnight) when the traveller arrives at the next stop. */
+  nextStopStartMinutes: number;
+};
+
+type ActiveBanner = {
+  key: string;
+  type: "soon" | "now";
+  window: ReminderWindow;
+  minutesUntilDeparture: number;
+};
+
+function computeReminderWindows(items: ItineraryItem[]): ReminderWindow[] {
+  if (items.length < 2) return [];
+  const windows: ReminderWindow[] = [];
+  for (let i = 0; i < items.length - 1; i++) {
+    const item = items[i];
+    const nextItem = items[i + 1];
+    const departureMinutes = parseTimeToMinutes(item.plannedEndTime);
+    const nextStopStartMinutes = parseTimeToMinutes(nextItem.plannedStartTime);
+    const travelMins = nextItem.travelTimeFromPrevious;
+    if (
+      departureMinutes === null ||
+      nextStopStartMinutes === null ||
+      !Number.isFinite(travelMins) ||
+      travelMins < 0
+    ) {
+      continue;
+    }
+    const leadMinutes = travelMins + REMINDER_BUFFER_MINUTES;
+    const soonTime = departureMinutes - leadMinutes;
+    if (soonTime < 0) continue;
+    windows.push({
+      stopIndex: i,
+      currentStopName: item.attraction.name,
+      nextStopName: nextItem.attraction.name,
+      soonTime,
+      departureTime: departureMinutes,
+      nextStopStartMinutes,
+    });
+  }
+  return windows;
+}
+
+function getActiveBanner(
+  simTimeMinutes: number,
+  windows: ReminderWindow[]
+): ActiveBanner | null {
+  for (const w of windows) {
+    if (simTimeMinutes >= w.soonTime && simTimeMinutes < w.departureTime) {
+      return {
+        key: `${w.stopIndex}-soon`,
+        type: "soon",
+        window: w,
+        minutesUntilDeparture: w.departureTime - simTimeMinutes,
+      };
+    }
+    if (simTimeMinutes >= w.departureTime && simTimeMinutes < w.nextStopStartMinutes) {
+      return {
+        key: `${w.stopIndex}-now`,
+        type: "now",
+        window: w,
+        minutesUntilDeparture: 0,
+      };
+    }
+  }
+  return null;
+}
+
+function getStopStatus(
+  item: ItineraryItem,
+  simTimeMinutes: number
+): "done" | "current" | "upcoming" {
+  const startMin = parseTimeToMinutes(item.plannedStartTime);
+  const endMin = parseTimeToMinutes(item.plannedEndTime);
+  if (startMin === null || endMin === null) return "upcoming";
+  if (simTimeMinutes >= endMin) return "done";
+  if (simTimeMinutes >= startMin) return "current";
+  return "upcoming";
 }
 
 function formatScore(score: number) {
@@ -233,8 +356,9 @@ function AdaptationCard({ adaptation }: { adaptation: ItineraryAdaptation }) {
   );
 }
 
-// Shared panel: summary stats + adaptation + map + stop list.
+// Shared panel: summary stats + adaptation + map + clock + stop list.
 // Used for both single-day display and inside expanded day cards.
+// Clock state is local — unmounts naturally when a day card closes, resetting on re-open.
 function ItineraryDetailPanel({
   itinerary,
   adaptation,
@@ -246,6 +370,71 @@ function ItineraryDetailPanel({
   updateDayError: string | null;
   onAttractionClick: (attraction: Attraction) => void;
 }) {
+  const items = itinerary.items;
+  const rangeMin =
+    parseTimeToMinutes(items[0]?.plannedStartTime ?? "09:00") ?? 9 * 60;
+  const rangeMax =
+    parseTimeToMinutes(items[items.length - 1]?.plannedEndTime ?? "18:00") ?? 18 * 60;
+
+  const [simTimeMinutes, setSimTimeMinutes] = useState(rangeMin);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [dismissedBannerKeys, setDismissedBannerKeys] = useState<Set<string>>(
+    new Set()
+  );
+  const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Reset clock whenever the itinerary data changes (new generation, Update Day, etc.)
+  useEffect(() => {
+    const newMin =
+      parseTimeToMinutes(itinerary.items[0]?.plannedStartTime ?? "09:00") ?? 9 * 60;
+    setSimTimeMinutes(newMin);
+    setIsPlaying(false);
+    setDismissedBannerKeys(new Set());
+    if (playIntervalRef.current) {
+      clearInterval(playIntervalRef.current);
+      playIntervalRef.current = null;
+    }
+  }, [itinerary]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Drive the simulated clock forward at SIM_TICK_MS per simulated minute
+  useEffect(() => {
+    if (playIntervalRef.current) {
+      clearInterval(playIntervalRef.current);
+      playIntervalRef.current = null;
+    }
+    if (!isPlaying) return;
+    playIntervalRef.current = setInterval(() => {
+      setSimTimeMinutes((prev) => {
+        const next = prev + 1;
+        if (next >= rangeMax) {
+          setIsPlaying(false);
+          return rangeMax;
+        }
+        return next;
+      });
+    }, SIM_TICK_MS);
+    return () => {
+      if (playIntervalRef.current) {
+        clearInterval(playIntervalRef.current);
+        playIntervalRef.current = null;
+      }
+    };
+  }, [isPlaying, rangeMax]);
+
+  const reminderWindows = useMemo(() => computeReminderWindows(items), [items]);
+  const rawBanner = getActiveBanner(simTimeMinutes, reminderWindows);
+  const activeBanner =
+    rawBanner && !dismissedBannerKeys.has(rawBanner.key) ? rawBanner : null;
+
+  const sliderFillPct =
+    rangeMax > rangeMin
+      ? Math.round(((simTimeMinutes - rangeMin) / (rangeMax - rangeMin)) * 100)
+      : 0;
+
+  function dismissBanner(key: string) {
+    setDismissedBannerKeys((prev) => new Set([...prev, key]));
+  }
+
   return (
     <>
       {updateDayError ? (
@@ -282,7 +471,7 @@ function ItineraryDetailPanel({
 
       {adaptation ? <AdaptationCard adaptation={adaptation} /> : null}
 
-      {itinerary.items.length === 0 ? (
+      {items.length === 0 ? (
         <div className="state-panel">
           <h3>No feasible itinerary found</h3>
           <p>The selected travel window is too short for the ranked attractions.</p>
@@ -291,24 +480,126 @@ function ItineraryDetailPanel({
         <>
           <ItineraryMap
             key={buildMapKey(itinerary)}
-            items={itinerary.items}
+            items={items}
             routeGeometry={itinerary.routeGeometry}
             routing={itinerary.routing}
             transportMode={itinerary.transportMode}
           />
 
+          {/* ── Simulated trip clock ── */}
+          <div className="trip-clock" aria-label="Simulated trip clock">
+            <div className="trip-clock-header">
+              <span className="trip-clock-label">Simulated clock</span>
+              <span
+                className="trip-clock-time"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {minutesToTimeStr(simTimeMinutes)}
+              </span>
+            </div>
+            <div className="trip-clock-controls">
+              <button
+                type="button"
+                className="trip-clock-play-btn"
+                onClick={() => setIsPlaying((p) => !p)}
+                aria-label={isPlaying ? "Pause trip clock" : "Play trip clock"}
+              >
+                {isPlaying ? (
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 11 11"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <rect x="0.5" y="0.5" width="3.5" height="10" rx="1" />
+                    <rect x="7" y="0.5" width="3.5" height="10" rx="1" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 11 11"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M1.5 0.5L10.5 5.5L1.5 10.5V0.5Z" />
+                  </svg>
+                )}
+              </button>
+              <input
+                type="range"
+                className="trip-clock-slider"
+                min={rangeMin}
+                max={rangeMax}
+                value={simTimeMinutes}
+                step={1}
+                style={{ "--fill": `${sliderFillPct}%` } as React.CSSProperties}
+                onChange={(e) => {
+                  setIsPlaying(false);
+                  setSimTimeMinutes(Number(e.target.value));
+                }}
+                aria-label="Trip time scrubber"
+                aria-valuenow={simTimeMinutes}
+                aria-valuemin={rangeMin}
+                aria-valuemax={rangeMax}
+                aria-valuetext={minutesToTimeStr(simTimeMinutes)}
+              />
+              <span className="trip-clock-speed" aria-hidden="true">
+                ×20
+              </span>
+            </div>
+          </div>
+
+          {/* ── Active leave-reminder banner ── */}
+          {activeBanner ? (
+            <div
+              key={activeBanner.key}
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className={`trip-banner trip-banner-${activeBanner.type}`}
+            >
+              <div className="trip-banner-top">
+                <p className="trip-banner-text">
+                  {activeBanner.type === "soon"
+                    ? `Time to move soon — wrap up at ${activeBanner.window.currentStopName} and head to ${activeBanner.window.nextStopName} in about ${activeBanner.minutesUntilDeparture} min.`
+                    : `Head to ${activeBanner.window.nextStopName} now.`}
+                </p>
+                <button
+                  type="button"
+                  className="trip-banner-dismiss"
+                  onClick={() => dismissBanner(activeBanner.key)}
+                  aria-label="Dismiss reminder"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* ── Stop list with clock-driven status ── */}
           <div className="itinerary-list">
-            {itinerary.items.map((item, index) => {
+            {items.map((item, index) => {
               const imageSrc =
                 item.attraction.thumbnail_url ?? item.attraction.image_url ?? null;
               const placeholderClass = getItineraryPlaceholderClass(
                 item.attraction.category
               );
+              const nextStop =
+                index < items.length - 1 ? items[index + 1] : null;
+              const reminderTime = nextStop
+                ? computeReminderTime(item.plannedEndTime)
+                : null;
+              const stopStatus = getStopStatus(item, simTimeMinutes);
 
               return (
                 <button
                   type="button"
-                  className="itinerary-card itinerary-card-clickable"
+                  className={`itinerary-card itinerary-card-clickable${
+                    stopStatus !== "upcoming" ? ` itinerary-card-${stopStatus}` : ""
+                  }`}
                   key={item.attraction.id}
                   onClick={() => onAttractionClick(item.attraction)}
                   aria-label={`View details for ${item.attraction.name}`}
@@ -373,6 +664,16 @@ function ItineraryDetailPanel({
                       Visit {item.attraction.estimated_visit_duration} min
                     </Badge>
                   </div>
+
+                  {reminderTime && nextStop ? (
+                    <p
+                      className="itinerary-leave-reminder"
+                      aria-label={`Leave reminder at ${reminderTime}: prepare to head to ${nextStop.attraction.name}`}
+                    >
+                      Leave reminder · {reminderTime} — Prepare to head to{" "}
+                      {nextStop.attraction.name}
+                    </p>
+                  ) : null}
 
                   <dl className="itinerary-meta">
                     <div>
