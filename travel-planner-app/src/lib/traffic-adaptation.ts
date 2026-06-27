@@ -427,7 +427,8 @@ function handleModerate(
   const adaptation: ItineraryAdaptation = {
     applied: true,
     reasons: [
-      `Moderate simulated traffic delay added ${delayMinutes} minutes between ${fromStop} and ${toStop}.`,
+      `Traffic detected on route to ${toStop}: +${delayMinutes} min delay applied (${originalLegMinutes} min → ${simulatedLegMinutes} min).`,
+      `Route checked — current path is still the best available option.`,
     ],
     feasibilityStatus: toAdaptFeasibilityStatus(newFeasibilityStatus),
     trafficSimulation: trafficSim,
@@ -489,8 +490,8 @@ async function handleHeavy(
     const adaptation: ItineraryAdaptation = {
       applied: true,
       reasons: [
-        `Heavy simulated traffic delay added ${delayMinutes} minutes between ${fromStop} and ${toStop}.`,
-        "The itinerary remains feasible despite the delay.",
+        `Heavy traffic on route from ${fromStop} to ${toStop}: +${delayMinutes} min delay applied (${trafficSimBase.originalLegTravelTime} min → ${trafficSimBase.simulatedLegTravelTime} min).`,
+        `Route checked — current path is still the best available option. Itinerary remains feasible within your time window.`,
       ],
       feasibilityStatus: "adjusted",
       trafficSimulation: trafficSim,
@@ -523,8 +524,8 @@ async function handleHeavy(
   const adaptation: ItineraryAdaptation = {
     applied: false,
     reasons: [
-      `Heavy simulated traffic delay added ${delayMinutes} minutes between ${fromStop} and ${toStop}.`,
-      "An adapted itinerary is available. Choose whether to switch.",
+      `Heavy traffic on route from ${fromStop} to ${toStop}: +${delayMinutes} min delay (${trafficSimBase.originalLegTravelTime} min → ${trafficSimBase.simulatedLegTravelTime} min).`,
+      `This delay makes the itinerary infeasible. An adapted route is available — choose to stay on the delayed route or switch to the re-optimized itinerary.`,
     ],
     feasibilityStatus: toAdaptFeasibilityStatus(proposedItinerary.feasibilityStatus),
     trafficSimulation: trafficSimDecision,
@@ -567,11 +568,19 @@ async function handleBlocked(
     simulatedLegTravelTime: trafficSimBase.originalLegTravelTime,
   };
 
+  const removedStopNames = currentItinerary.items
+    .filter((item) => !adaptedItinerary.items.some((ai) => ai.attraction.id === item.attraction.id))
+    .map((item) => item.attraction.name);
+
+  const removalNote = removedStopNames.length > 0
+    ? ` ${removedStopNames.join(", ")} removed to free up time.`
+    : "";
+
   const adaptation: ItineraryAdaptation = {
     applied: true,
     reasons: [
-      `Simulated traffic blockage detected between ${fromStop} and ${toStop}.`,
-      "The itinerary was automatically updated because the current route is blocked.",
+      `Route blocked between ${fromStop} and ${toStop}.`,
+      `Itinerary re-optimized (stops reordered):${removalNote} Remaining stops rerouted for best available path.`,
     ],
     feasibilityStatus: toAdaptFeasibilityStatus(adaptedItinerary.feasibilityStatus),
     trafficSimulation: trafficSim,

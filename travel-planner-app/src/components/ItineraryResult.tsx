@@ -258,13 +258,16 @@ function getAdaptationTitle(adaptation: ItineraryAdaptation) {
   const trafficSim = adaptation.trafficSimulation;
 
   if (trafficSim?.status === "blocked_reoptimized") {
-    return "Route blocked — itinerary automatically updated";
+    return "Route blocked — itinerary re-optimized (stops reordered)";
   }
   if (trafficSim?.enabled && trafficSim.severity === "heavy") {
-    return "Simulated heavy traffic delay detected";
+    if (adaptation.applied) {
+      return "Heavy traffic — adapted route applied (stops reordered)";
+    }
+    return "Heavy traffic delay detected — choose how to proceed";
   }
   if (trafficSim?.enabled && trafficSim.severity === "moderate") {
-    return "Simulated moderate traffic delay applied";
+    return "Moderate traffic — delay applied (current route is still best)";
   }
 
   const hasWeatherAdjustment =
@@ -572,6 +575,7 @@ function ItineraryDetailPanel({
             transportMode={itinerary.transportMode}
             activeStopIndex={effectiveStopIndex}
             onStopClick={handleStopClick}
+            affectedLegIndex={adaptation?.trafficSimulation?.affectedLegIndex}
           />
 
           {/* ── Simulated trip clock ── */}

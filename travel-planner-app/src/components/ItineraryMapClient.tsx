@@ -219,7 +219,16 @@ function NumberedMarker({
   );
 }
 
-function getLegPathOptions(transport: RoutingTransport | TransportMode | undefined) {
+function getLegPathOptions(transport: RoutingTransport | TransportMode | undefined, isAffected = false) {
+  if (isAffected) {
+    return {
+      color: "#e22134",
+      dashArray: undefined,
+      lineCap: "round" as const,
+      opacity: 0.92,
+      weight: 6,
+    };
+  }
   return {
     color: transport === "walking" ? "#0b7a75" : "#0f67b1",
     dashArray: transport === "walking" ? "2 10" : undefined,
@@ -233,6 +242,7 @@ type LegPolyline = {
   key: string;
   transport: RoutingTransport;
   positions: [number, number][];
+  isAffected: boolean;
 };
 
 function buildLegPolylines(
@@ -240,12 +250,13 @@ function buildLegPolylines(
   legs: RouteLeg[] | undefined,
   fallbackTransport: TransportMode | undefined,
   shouldUseRouteGeometry: boolean,
-  stopPositions: [number, number][]
+  stopPositions: [number, number][],
+  affectedLegIndex: number | undefined
 ): LegPolyline[] {
   const coords = routeGeometry?.coordinates ?? [];
 
   if (legs && legs.length > 0 && shouldUseRouteGeometry && coords.length >= 2) {
-    return legs.map((leg, i) => {
+    const polylines = legs.map((leg, i) => {
       const start = leg.geometryStartOffset;
       const end =
         i + 1 < legs.length ? legs[i + 1].geometryStartOffset + 1 : coords.length;
@@ -263,15 +274,20 @@ function buildLegPolylines(
         }
         return [[lat, lng]] as [number, number][];
       });
+      // affectedLegIndex is the destination stop index (1-based); routing legs are 0-indexed
+      const isAffected = affectedLegIndex !== undefined && i === affectedLegIndex - 1;
       return {
         key: `leg-${leg.fromIndex}-${leg.toIndex}-${leg.transport}`,
         transport: leg.transport,
         positions,
+        isAffected,
       };
     });
+    // Render the affected leg last so it draws on top of normal legs
+    return [...polylines.filter((l) => !l.isAffected), ...polylines.filter((l) => l.isAffected)];
   }
 
-  // Fallback: single polyline
+  // Fallback: single polyline (no per-leg geometry, so no segment highlight)
   const positions: [number, number][] =
     shouldUseRouteGeometry && coords.length >= 2
       ? buildRouteGeometryPositions(routeGeometry)
@@ -282,6 +298,7 @@ function buildLegPolylines(
       key: "single",
       transport: fallbackTransport ?? "driving",
       positions,
+      isAffected: false,
     },
   ];
 }
@@ -293,6 +310,7 @@ export function ItineraryMapClient({
   transportMode,
   activeStopIndex = 0,
   onStopClick,
+  affectedLegIndex,
 }: ItineraryMapProps) {
   const stops = useMemo(() => buildStops(items), [items]);
   const stopPositions = useMemo(
@@ -313,9 +331,10 @@ export function ItineraryMapClient({
         routing?.legs,
         transportMode,
         shouldUseRouteGeometry,
-        stopPositions
+        stopPositions,
+        affectedLegIndex
       ),
-    [routeGeometry, routing, transportMode, shouldUseRouteGeometry, stopPositions]
+    [routeGeometry, routing, transportMode, shouldUseRouteGeometry, stopPositions, affectedLegIndex]
   );
   const boundsPositions = useMemo(
     () => [
@@ -377,7 +396,7 @@ export function ItineraryMapClient({
           leg.positions.length > 1 ? (
             <Polyline
               key={`${routeKey}:${leg.key}`}
-              pathOptions={getLegPathOptions(leg.transport)}
+              pathOptions={getLegPathOptions(leg.transport, leg.isAffected)}
               positions={leg.positions}
             />
           ) : null

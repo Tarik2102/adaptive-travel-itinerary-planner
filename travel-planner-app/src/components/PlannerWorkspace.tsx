@@ -393,9 +393,25 @@ export function PlannerWorkspace() {
     [itineraryPlan, generateAdditionalDays]
   );
 
+  // Ref keeps the active day index fresh inside the stable handleTrafficUpdate callback.
+  const visibleActiveDayIndexRef = useRef(0);
+  visibleActiveDayIndexRef.current = visibleActiveDayIndex;
+
   const handleTrafficUpdate = useCallback(
-    (itinerary: GeneratedItinerary, adaptation: ItineraryAdaptation) => {
-      setItineraryPlan((prev) => (prev ? { ...prev, itinerary, adaptation } : null));
+    (updatedItinerary: GeneratedItinerary, adaptation: ItineraryAdaptation) => {
+      setItineraryPlan((prev) => {
+        if (!prev) return prev;
+        if ((prev.days?.length ?? 0) > 1 && prev.days) {
+          const dayIdx = visibleActiveDayIndexRef.current;
+          return {
+            ...prev,
+            days: prev.days.map((d, i) =>
+              i === dayIdx ? { ...d, itinerary: updatedItinerary, adaptation } : d
+            ),
+          };
+        }
+        return { ...prev, itinerary: updatedItinerary, adaptation };
+      });
     },
     []
   );
@@ -420,19 +436,19 @@ export function PlannerWorkspace() {
 
         {itineraryPlan && currentPreferences ? (
           isDriving ? (
-            isMultiDayPlan ? (
-              <div className="traffic-panel traffic-panel-disabled">
-                <p className="traffic-panel-disabled-note">
-                  Traffic simulation is available for single-day driving routes.
-                </p>
-              </div>
-            ) : (
-              <TrafficSimulationPanel
-                itinerary={itineraryPlan.itinerary}
-                preferences={currentPreferences}
-                onItineraryUpdated={handleTrafficUpdate}
-              />
-            )
+            <TrafficSimulationPanel
+              key={isMultiDayPlan ? `day-${visibleActiveDayIndex}` : "single"}
+              itinerary={
+                isMultiDayPlan && itineraryPlan.days
+                  ? (itineraryPlan.days[visibleActiveDayIndex]?.itinerary ?? itineraryPlan.itinerary)
+                  : itineraryPlan.itinerary
+              }
+              preferences={
+                (isMultiDayPlan && activeDayGeneratedPrefs) ? activeDayGeneratedPrefs : currentPreferences
+              }
+              onItineraryUpdated={handleTrafficUpdate}
+              dayLabel={activeDayNumber !== null ? `Day ${activeDayNumber}` : undefined}
+            />
           ) : (
             <div className="traffic-panel traffic-panel-disabled">
               <p className="traffic-panel-disabled-note">
