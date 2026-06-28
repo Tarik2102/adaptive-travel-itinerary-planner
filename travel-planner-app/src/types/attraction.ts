@@ -46,4 +46,6 @@ export type Attraction = {
   thumbnail_url?: string | null;
   images?: AttractionImage[];
   description_source?: string | null;
+  description_en?: string | null;
+  description_en_source?: string | null;
 };

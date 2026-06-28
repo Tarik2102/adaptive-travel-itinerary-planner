@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { Attraction, AttractionImage } from "@/types/attraction";
-import { isGenericDescription } from "@/lib/interestFilter";
+import { isGenericDescription, truncateClean } from "@/lib/interestFilter";
 
 type Props = {
   attraction: Attraction | null;
@@ -37,6 +37,14 @@ function getPlaceholderClass(category: string): string {
   return "placeholder-default";
 }
 
+// Removes any trailing U+2026 ellipsis written by the DB enrichment scripts
+// so the modal always shows clean text rather than an enrichment artifact.
+function stripEllipsis(text: string | null | undefined): string | null {
+  const t = text?.trim();
+  if (!t) return null;
+  return t.endsWith("…") ? t.slice(0, -1).trimEnd() : t;
+}
+
 function formatTime(value: string | null) {
   if (!value) return null;
   const [hour, minute] = value.split(":");
@@ -48,6 +56,7 @@ type GalleryItem = { src: string; alt: string; attribution?: string | null };
 
 export function AttractionDetailsModal({ attraction, images, imagesLoading, onClose }: Props) {
   const [imgIndex, setImgIndex] = useState(0);
+  const [descExpanded, setDescExpanded] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const prevFocusRef = useRef<Element | null>(null);
   const isOpen = attraction !== null;
@@ -69,6 +78,7 @@ export function AttractionDetailsModal({ attraction, images, imagesLoading, onCl
 
   useEffect(() => {
     setImgIndex(0);
+    setDescExpanded(false);
   }, [attraction?.id]);
 
   useEffect(() => {
@@ -121,10 +131,19 @@ export function AttractionDetailsModal({ attraction, images, imagesLoading, onCl
   const placeholderClass = getPlaceholderClass(attraction.category);
   const currentImage = gallery[imgIndex] ?? null;
   const rating = attraction.rating === null ? null : Number(attraction.rating).toFixed(1);
-  // Descriptions written by the enrichment script are always real — bypass generic checks.
+  // Full text: prefer description_en; strip any trailing U+2026 enrichment artifact.
+  const fullDescription =
+    stripEllipsis(attraction.description_en) ??
+    stripEllipsis(attraction.description) ??
+    "";
   const showRealDescription =
+    !!(attraction.description_en?.trim()) ||
     !!(attraction.description_source && attraction.description?.trim()) ||
     !isGenericDescription(attraction.description);
+  // Collapsed preview — clean word/sentence boundary, never mid-word.
+  const { preview: descPreview, truncated: descTruncated } = fullDescription
+    ? truncateClean(fullDescription, 200, { preferSentence: true })
+    : { preview: "", truncated: false };
 
   const openTime = formatTime(attraction.opening_time);
   const closeTime = formatTime(attraction.closing_time);
@@ -233,7 +252,21 @@ export function AttractionDetailsModal({ attraction, images, imagesLoading, onCl
           </div>
 
           {showRealDescription ? (
-            <p className="attraction-modal-description">{attraction.description!.trim()}</p>
+            <div className="attraction-modal-description-block">
+              <p className="attraction-modal-description">
+                {descExpanded ? fullDescription : descPreview}
+              </p>
+              {descTruncated && (
+                <button
+                  type="button"
+                  className="attraction-description-toggle"
+                  aria-expanded={descExpanded}
+                  onClick={() => setDescExpanded((e) => !e)}
+                >
+                  {descExpanded ? "Read less" : "Read more"}
+                </button>
+              )}
+            </div>
           ) : (
             <p className="attraction-modal-description attraction-modal-description-muted">
               Detailed visitor information about this Sarajevo attraction.

@@ -90,17 +90,60 @@ export function isGenericDescription(description: string | null | undefined): bo
   return false;
 }
 
+// Truncates text cleanly — never mid-word — and only appends "…" when it actually truncated.
+//
+// Algorithm:
+//   1. Strip any trailing U+2026 written by the DB enrichment scripts.
+//   2. If preferSentence, try the last sentence-ending punctuation (. ! ?)
+//      at or before maxLen; if found, return it without "…".
+//   3. Fall back to the last word boundary at or before maxLen, append "…".
+//   4. If the text fits entirely, return it untouched (truncated: false).
+//
+// Returns { preview, truncated } so callers can decide whether to show a "Read more" link.
+export function truncateClean(
+  text: string,
+  maxLen: number,
+  { preferSentence = false }: { preferSentence?: boolean } = {}
+): { preview: string; truncated: boolean } {
+  // Strip trailing enrichment ellipsis (U+2026) before any logic.
+  const t = text.endsWith("…") ? text.slice(0, -1).trimEnd() : text;
+
+  if (t.length <= maxLen) return { preview: t, truncated: false };
+
+  // Sentence-boundary pass (period only qualifies when followed by space or end-of-string,
+  // so abbreviations like "U.S.A." are skipped).
+  if (preferSentence) {
+    let lastSentenceEnd = -1;
+    for (let i = 0; i < maxLen && i < t.length; i++) {
+      const c = t[i];
+      if (c === "!" || c === "?") {
+        lastSentenceEnd = i;
+      } else if (c === ".") {
+        const next = t[i + 1];
+        if (!next || next === " ") lastSentenceEnd = i;
+      }
+    }
+    if (lastSentenceEnd >= 0) {
+      return { preview: t.slice(0, lastSentenceEnd + 1), truncated: true };
+    }
+  }
+
+  // Word-boundary fallback — never cut mid-word.
+  const slice = t.slice(0, maxLen);
+  const lastSpace = slice.lastIndexOf(" ");
+  const cutAt = lastSpace > 0 ? lastSpace : maxLen;
+  return { preview: t.slice(0, cutAt).trimEnd() + "…", truncated: true };
+}
+
 export function getDisplayDescription(attraction: Attraction): string {
-  // Descriptions written by the enrichment script are always real — bypass generic checks.
-  if (attraction.description_source && attraction.description?.trim()) {
-    const desc = attraction.description.trim();
-    return desc.length > 160 ? desc.slice(0, 157) + "…" : desc;
-  }
-  if (!isGenericDescription(attraction.description)) {
-    const desc = attraction.description!.trim();
-    return desc.length > 160 ? desc.slice(0, 157) + "…" : desc;
-  }
-  return "A point of interest in Sarajevo worth exploring.";
+  const raw = (() => {
+    if (attraction.description_en?.trim()) return attraction.description_en.trim();
+    if (attraction.description_source && attraction.description?.trim()) return attraction.description.trim();
+    if (!isGenericDescription(attraction.description)) return attraction.description!.trim();
+    return null;
+  })();
+  if (!raw) return "A point of interest in Sarajevo worth exploring.";
+  return truncateClean(raw, 200, { preferSentence: true }).preview;
 }
 
 type FilteredGroup = { label: string; items: Attraction[]; total: number };
