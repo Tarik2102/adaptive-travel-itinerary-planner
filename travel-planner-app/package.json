@@ -11,6 +11,8 @@
     "clean:pois": "tsx scripts/clean-sarajevo-pois.ts",
     "sync:manual-coordinates": "tsx scripts/sync-manual-attraction-coordinates.ts",
     "enrich": "tsx scripts/enrich-attraction-images.ts",
+    "enrich:descriptions": "tsx scripts/enrich-descriptions.ts",
+    "enrich:descriptions-en": "tsx scripts/enrich-descriptions-en.ts",
     "dedupe": "tsx scripts/dedupe-attractions.ts",
     "dedupe:apply": "tsx scripts/dedupe-attractions.ts --apply"
   },
