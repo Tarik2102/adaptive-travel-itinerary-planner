@@ -45,4 +45,5 @@ export type Attraction = {
   image_url?: string | null;
   thumbnail_url?: string | null;
   images?: AttractionImage[];
+  description_source?: string | null;
 };

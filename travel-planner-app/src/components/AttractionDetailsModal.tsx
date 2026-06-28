@@ -121,7 +121,10 @@ export function AttractionDetailsModal({ attraction, images, imagesLoading, onCl
   const placeholderClass = getPlaceholderClass(attraction.category);
   const currentImage = gallery[imgIndex] ?? null;
   const rating = attraction.rating === null ? null : Number(attraction.rating).toFixed(1);
-  const showRealDescription = !isGenericDescription(attraction.description);
+  // Descriptions written by the enrichment script are always real — bypass generic checks.
+  const showRealDescription =
+    !!(attraction.description_source && attraction.description?.trim()) ||
+    !isGenericDescription(attraction.description);
 
   const openTime = formatTime(attraction.opening_time);
   const closeTime = formatTime(attraction.closing_time);

@@ -91,11 +91,16 @@ export function isGenericDescription(description: string | null | undefined): bo
 }
 
 export function getDisplayDescription(attraction: Attraction): string {
+  // Descriptions written by the enrichment script are always real — bypass generic checks.
+  if (attraction.description_source && attraction.description?.trim()) {
+    const desc = attraction.description.trim();
+    return desc.length > 160 ? desc.slice(0, 157) + "…" : desc;
+  }
   if (!isGenericDescription(attraction.description)) {
     const desc = attraction.description!.trim();
     return desc.length > 160 ? desc.slice(0, 157) + "…" : desc;
   }
-  return "Explore this Sarajevo highlight and view more details, photos, and location information.";
+  return "A point of interest in Sarajevo worth exploring.";
 }
 
 type FilteredGroup = { label: string; items: Attraction[]; total: number };
