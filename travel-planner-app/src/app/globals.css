@@ -1895,6 +1895,16 @@ section[id] {
   width: 100%;
 }
 
+.traffic-panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.traffic-panel-actions .traffic-simulate-btn {
+  flex: 1 1 auto;
+  width: auto;
+}
+
 .traffic-notification {
   border-radius: var(--radius);
   padding: 12px 14px;
@@ -1907,6 +1917,12 @@ section[id] {
   border: 1px solid rgba(180, 35, 24, 0.28);
   color: var(--danger);
   background: var(--danger-soft);
+}
+
+.traffic-notification-warning {
+  border: 1px solid rgba(180, 120, 24, 0.3);
+  color: var(--amber);
+  background: var(--amber-soft, rgba(251, 191, 36, 0.08));
 }
 
 .traffic-notification-info {
