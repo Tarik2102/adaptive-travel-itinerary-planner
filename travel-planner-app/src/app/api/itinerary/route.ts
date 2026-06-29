@@ -75,6 +75,8 @@ type AttractionRow = QueryResultRow & {
   id: number;
   name: string;
   description: string | null;
+  description_en: string | null;
+  description_en_source: string | null;
   category: string;
   primary_category: string | null;
   secondary_categories: string[] | string | null;
@@ -295,6 +297,8 @@ async function fetchAttractions(): Promise<Attraction[]> {
       id,
       name,
       description,
+      description_en,
+      description_en_source,
       category,
       primary_category,
       secondary_categories,
@@ -335,6 +339,8 @@ function normalizeAttraction(row: AttractionRow): Attraction {
     id: row.id,
     name: row.name,
     description: row.description,
+    description_en: row.description_en ?? null,
+    description_en_source: row.description_en_source ?? null,
     category: row.category,
     primary_category: row.primary_category,
     secondary_categories: normalizeTextArray(row.secondary_categories),
