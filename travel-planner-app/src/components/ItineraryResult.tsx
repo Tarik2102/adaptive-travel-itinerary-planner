@@ -518,6 +518,16 @@ function ItineraryDetailPanel({
     ? getStopStatus(activeItem, simTimeMinutes)
     : "upcoming";
 
+  // When stops were removed or reordered the original affectedLegIndex points at a
+  // segment that no longer exists in the re-optimised route — clear it so no stale
+  // red highlight appears.  Only preserve it when the same stop set was kept and a
+  // delay was merely applied (delayed_but_feasible, or heavy stayed on current route).
+  const _ts = adaptation?.trafficSimulation;
+  const _stopsReordered =
+    _ts?.status === "blocked_reoptimized" ||
+    (_ts?.status === "heavy_delay_feasible" && adaptation?.applied === true);
+  const effectiveAffectedLegIndex = _stopsReordered ? undefined : _ts?.affectedLegIndex;
+
   return (
     <>
       {updateDayError ? (
@@ -575,7 +585,7 @@ function ItineraryDetailPanel({
             transportMode={itinerary.transportMode}
             activeStopIndex={effectiveStopIndex}
             onStopClick={handleStopClick}
-            affectedLegIndex={adaptation?.trafficSimulation?.affectedLegIndex}
+            affectedLegIndex={effectiveAffectedLegIndex}
           />
 
           {/* ── Simulated trip clock ── */}
