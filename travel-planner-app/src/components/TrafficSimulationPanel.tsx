@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   GeneratedItinerary,
   ItineraryAdaptation,
@@ -75,6 +76,15 @@ export function TrafficSimulationPanel({
     trafficSource?: string;
     fallbackReason?: string;
   } | null>(null);
+
+  // Lock body scroll while the decision modal is open so background content
+  // cannot scroll under/over the overlay.
+  useEffect(() => {
+    if (!decisionModalOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [decisionModalOpen]);
 
   // Capture the pre-simulation itinerary the first time a simulation runs
   const originalItineraryRef = useRef<GeneratedItinerary | null>(null);
@@ -358,7 +368,8 @@ export function TrafficSimulationPanel({
         ) : null}
       </div>
 
-      {decisionModalOpen && pendingDecision ? (
+      {decisionModalOpen && pendingDecision
+        ? createPortal(
         <div
           className="traffic-modal-overlay"
           role="dialog"
@@ -429,7 +440,8 @@ export function TrafficSimulationPanel({
             </div>
           </div>
         </div>
-      ) : null}
+        , document.body)
+        : null}
     </>
   );
 }

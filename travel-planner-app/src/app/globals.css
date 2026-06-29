@@ -1954,7 +1954,9 @@ section[id] {
 .traffic-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  /* Must sit above Leaflet panes (max ~700), the site-header (20),
+     and the attraction detail modal (60). 1000 clears all of those. */
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
