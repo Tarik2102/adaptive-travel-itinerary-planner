@@ -504,6 +504,13 @@ function ItineraryDetailPanel({
   const activeItem = items[effectiveStopIndex] ?? items[0];
   const activeImageSrc =
     activeItem?.attraction.thumbnail_url ?? activeItem?.attraction.image_url ?? null;
+  // Remember which src failed rather than a boolean: advancing the carousel to a
+  // stop with a different src clears the placeholder on its own.
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const visibleActiveImageSrc =
+    activeImageSrc !== null && activeImageSrc !== failedImageSrc
+      ? activeImageSrc
+      : null;
   const activePlaceholderClass = activeItem
     ? getItineraryPlaceholderClass(activeItem.attraction.category)
     : "placeholder-default";
@@ -740,37 +747,16 @@ function ItineraryDetailPanel({
                   onClick={() => onAttractionClick(activeItem.attraction)}
                   aria-label={`View details for ${activeItem.attraction.name}`}
                 >
-                  {activeImageSrc ? (
+                  {visibleActiveImageSrc ? (
                     <div className="itinerary-card-image">
                       <Image
-                        src={activeImageSrc}
+                        src={visibleActiveImageSrc}
                         alt={activeItem.attraction.name}
                         fill
                         sizes="(max-width: 760px) 100vw, 640px"
                         style={{ objectFit: "cover" }}
-                        unoptimized={isWikimediaUrl(activeImageSrc)}
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          target.style.display = "none";
-                          const parent = target.parentElement;
-                          if (parent) {
-                            parent.classList.remove(
-                              ...Array.from(parent.classList).filter(
-                                (c) => c !== "itinerary-card-image"
-                              )
-                            );
-                            parent.classList.add(
-                              "itinerary-card-image",
-                              activePlaceholderClass
-                            );
-                            const label = document.createElement("span");
-                            label.className = "attraction-placeholder-label";
-                            label.textContent = toTitleCase(
-                              activeItem.attraction.category
-                            );
-                            parent.appendChild(label);
-                          }
-                        }}
+                        unoptimized={isWikimediaUrl(visibleActiveImageSrc)}
+                        onError={() => setFailedImageSrc(visibleActiveImageSrc)}
                       />
                     </div>
                   ) : (

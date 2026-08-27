@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Image from "next/image";
 import type { Attraction } from "@/types/attraction";
 import { Badge } from "@/components/Badge";
@@ -70,30 +71,26 @@ export function AttractionCard({ attraction, onClick }: AttractionCardProps) {
   const description = getDisplayDescription(attraction);
   const placeholderClass = getPlaceholderClass(attraction.category);
   const imageSrc = attraction.thumbnail_url ?? attraction.image_url ?? null;
+  // Remember which src failed rather than a boolean: when the card is reused for
+  // another attraction the new src no longer matches, so the placeholder clears
+  // itself without an effect.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const visibleImageSrc = imageSrc !== null && imageSrc !== failedSrc ? imageSrc : null;
 
   const cardContent = (
     <>
-      <div className={`attraction-card-image ${!imageSrc ? placeholderClass : ""}`}>
-        {imageSrc ? (
+      <div
+        className={`attraction-card-image ${visibleImageSrc ? "" : placeholderClass}`}
+      >
+        {visibleImageSrc ? (
           <Image
-            src={imageSrc}
+            src={visibleImageSrc}
             alt={attraction.name}
             fill
             sizes="(max-width: 760px) 100vw, 50vw"
             style={{ objectFit: "cover" }}
-            unoptimized={isWikimediaUrl(imageSrc)}
-            onError={(e) => {
-              const target = e.currentTarget as HTMLImageElement;
-              target.style.display = "none";
-              const parent = target.parentElement;
-              if (parent) {
-                parent.classList.add(placeholderClass);
-                const label = document.createElement("span");
-                label.className = "attraction-placeholder-label";
-                label.textContent = toTitleCase(attraction.category);
-                parent.appendChild(label);
-              }
-            }}
+            unoptimized={isWikimediaUrl(visibleImageSrc)}
+            onError={() => setFailedSrc(visibleImageSrc)}
           />
         ) : (
           <span className="attraction-placeholder-label">
