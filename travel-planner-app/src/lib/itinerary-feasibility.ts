@@ -139,21 +139,16 @@ const STRICT_FOOD_CAFE_TAG_LABELS = new Set([
   "traditional_bosnian_food",
 ]);
 
-const FOOD_CAFE_SEARCH_TERMS = [
-  "bakery",
-  "bosnian food",
-  "burek",
-  "cafe",
-  "cevapi",
-  "coffee",
-  "cuisine",
-  "fast food",
-  "food",
-  "local food",
-  "pastry",
-  "restaurant",
-  "traditional bosnian food",
-];
+// Tags that identify a venue as a food/cafe stop in its own right. Broader than
+// STRICT_FOOD_CAFE_TAG_LABELS (which gates dedicated meal slots) but still
+// food-specific — a generic "food" tag is deliberately absent, since it also
+// appears on venues that merely contain somewhere to eat.
+const FOOD_CAFE_TAG_LABELS = new Set([
+  ...STRICT_FOOD_CAFE_TAG_LABELS,
+  "bar",
+  "local_food",
+  "pub",
+]);
 
 const FOOD_CAFE_INTEREST_LABELS = new Set([
   "cafe",
@@ -939,7 +934,7 @@ function getFoodEligibleCandidates(
       (candidate) => !isFoodCafeCandidate(candidate.candidate.attraction)
     );
 
-    if (nonFoodCafeCandidates.length > 0) {
+    if (preservesSelectedInterestMatches(nonFoodCafeCandidates, context)) {
       eligibleCandidates = nonFoodCafeCandidates;
     }
   }
@@ -952,7 +947,7 @@ function getFoodEligibleCandidates(
     (candidate) => !isFoodCafeCandidate(candidate.candidate.attraction)
   );
 
-  if (nonConsecutiveCandidates.length === 0) {
+  if (!preservesSelectedInterestMatches(nonConsecutiveCandidates, context)) {
     return eligibleCandidates;
   }
 
@@ -971,6 +966,24 @@ function getFoodEligibleCandidates(
     });
 
   return nonConsecutiveCandidates;
+}
+
+// Pacing rules are preferences, not constraints: a slot-level filter may only
+// apply while candidates matching a selected interest survive it. Without this
+// guard a filter can strand the day early (empty pool -> sparseCategory) even
+// though relevant stops remain, which is what the caller reads as "no relevant
+// candidates left". Break-on-empty should mean the interests are exhausted, not
+// that a secondary rule removed the last valid matches.
+function preservesSelectedInterestMatches(
+  filteredCandidates: RouteAwareScoredCandidate[],
+  context: LogicalSelectionContext
+): boolean {
+  return filteredCandidates.some((candidate) =>
+    candidateMatchesAnySelectedInterest(
+      candidate.candidate,
+      context.selectedInterests
+    )
+  );
 }
 
 function withLogicalSelectionReason(
@@ -1432,18 +1445,29 @@ function hasSelectedFoodCafeInterest(interests: string[]): boolean {
   return interests.some(isFoodCafeInterest);
 }
 
+// Broad food/cafe relevance, used by the pacing rules (consecutive-stop and
+// stop-limit). It follows the same discipline as isStrictFoodCafeCandidate:
+// identity comes from the venue's own category or a food-specific tag, never
+// from a passing mention in secondary_categories or the description. A shopping
+// mall whose secondary categories list "Food" for its food court is a shopping
+// stop, not a food stop.
 function isFoodCafeCandidate(attraction: Attraction): boolean {
-  const labels = labelsFromValues(getAttractionMetadataValues(attraction));
-
-  if (hasSetOverlap(labels, FOOD_CAFE_LABELS)) {
+  if (isStrictFoodCafeCandidate(attraction)) {
     return true;
   }
 
-  const searchText = getAttractionSearchText(attraction);
+  const primaryLabels = labelsFromValues([
+    attraction.category,
+    attraction.primary_category,
+  ]);
 
-  return FOOD_CAFE_SEARCH_TERMS.some((term) =>
-    containsSearchTerm(searchText, normalizeSearchText(term))
-  );
+  if (hasSetOverlap(primaryLabels, FOOD_CAFE_LABELS)) {
+    return true;
+  }
+
+  const tagLabels = labelsFromValues(attraction.tags ?? []);
+
+  return hasSetOverlap(tagLabels, FOOD_CAFE_TAG_LABELS);
 }
 
 function isStrictFoodCafeCandidate(attraction: Attraction): boolean {
@@ -1528,15 +1552,6 @@ function expandInterestTerms(interest: string): Set<string> {
 
 function expandInterestLabels(interest: string): Set<string> {
   return new Set([...expandInterestTerms(interest)].map(normalizeLabel));
-}
-
-function getAttractionMetadataValues(attraction: Attraction): string[] {
-  return [
-    attraction.category,
-    attraction.primary_category,
-    ...(attraction.secondary_categories ?? []),
-    ...(attraction.tags ?? []),
-  ].flatMap((value) => (value ? [value] : []));
 }
 
 function getAttractionSearchText(attraction: Attraction): string {
