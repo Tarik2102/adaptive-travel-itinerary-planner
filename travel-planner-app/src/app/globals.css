@@ -1238,9 +1238,17 @@ section[id] {
   letter-spacing: 0;
 }
 
+.itinerary-description {
+  color: var(--foreground);
+  line-height: 1.6;
+}
+
+/* Selection reasoning is supporting detail beneath the description — kept, but
+   visually secondary to it. */
 .itinerary-reason {
   color: var(--muted);
-  line-height: 1.55;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .itinerary-meta {

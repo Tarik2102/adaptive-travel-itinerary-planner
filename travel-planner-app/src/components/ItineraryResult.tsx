@@ -6,6 +6,7 @@ import { AttractionDetailsModal } from "@/components/AttractionDetailsModal";
 import { Badge } from "@/components/Badge";
 import { ItineraryMap } from "@/components/ItineraryMap";
 import { ItineraryLoader } from "@/components/Loader";
+import { getDisplayDescription } from "@/lib/interestFilter";
 import { SectionHeader } from "@/components/SectionHeader";
 import type { Attraction, AttractionImage } from "@/types/attraction";
 import type {
@@ -777,6 +778,10 @@ function ItineraryDetailPanel({
                     </div>
                     <span className="rating-pill">{formatScore(activeItem.score)}</span>
                   </div>
+
+                  <p className="itinerary-description">
+                    {getDisplayDescription(activeItem.attraction)}
+                  </p>
 
                   <p className="itinerary-reason">{activeItem.reason}</p>
 
