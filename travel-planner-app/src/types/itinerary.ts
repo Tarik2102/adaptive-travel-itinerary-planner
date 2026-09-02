@@ -1,6 +1,7 @@
 import type { Attraction } from "@/types/attraction";
 import type { PlannerPreferences, TransportMode } from "@/types/preference";
 import type { RouteGeometry, RoutingMetadata } from "@/lib/routing";
+import type { WeatherOverride } from "@/lib/weather-override";
 
 export type {
   Coordinate,
@@ -188,4 +189,5 @@ export type ItineraryResponse = ItineraryApiResponse;
 export type ItineraryRequest = {
   preferences: PlannerPreferences;
   excludeAttractionIds?: string[];
+  weatherOverride?: WeatherOverride;
 };

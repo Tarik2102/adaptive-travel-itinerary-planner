@@ -29,6 +29,10 @@ export type Attraction = {
   rating: string | number | null;
   price_level: string | null;
   indoor_outdoor: string | null;
+  // OSM-imported rows leave `indoor_outdoor` null but populate these two, so
+  // they are the only environment signal available for most attractions.
+  is_indoor?: boolean | null;
+  is_outdoor?: boolean | null;
   opening_time: string | null;
   closing_time: string | null;
   created_at?: string;
