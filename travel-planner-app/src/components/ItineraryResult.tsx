@@ -346,8 +346,15 @@ function AdaptationCard({ adaptation }: { adaptation: ItineraryAdaptation }) {
       ) : null}
 
       {affectedAttractions.length > 0 ? (
-        <div className="adaptation-detail-group">
-          <strong>Affected attractions</strong>
+        <details className="adaptation-detail-group adaptation-affected">
+          <summary>
+            <strong>
+              {affectedAttractions.length} outdoor{" "}
+              {affectedAttractions.length === 1 ? "attraction" : "attractions"}{" "}
+              deprioritized
+            </strong>
+            <span className="adaptation-affected-hint" aria-hidden="true" />
+          </summary>
           <ul>
             {affectedAttractions.map((attraction) => (
               <li key={attraction.id}>
@@ -355,7 +362,7 @@ function AdaptationCard({ adaptation }: { adaptation: ItineraryAdaptation }) {
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       ) : null}
 
       {adaptation.trafficSimulation?.enabled ? (

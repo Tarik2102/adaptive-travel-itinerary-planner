@@ -5,6 +5,8 @@ import { AttractionList } from "@/components/AttractionList";
 import { ItineraryResult } from "@/components/ItineraryResult";
 import { PreferenceForm } from "@/components/PreferenceForm";
 import { TrafficSimulationPanel } from "@/components/TrafficSimulationPanel";
+import { WeatherSimulationPanel } from "@/components/WeatherSimulationPanel";
+import type { WeatherOverride } from "@/lib/weather-override";
 import type {
   GeneratedItinerary,
   ItineraryAdaptation,
@@ -53,6 +55,16 @@ export function PlannerWorkspace() {
   const dayDrafts = useRef<Map<number, PlannerPreferences>>(new Map());
   const currentPreferencesRef = useRef<PlannerPreferences | null>(null);
   const autoUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Snapshot of the active day taken just before the first weather simulation,
+  // so Reset can restore the day exactly as it was (stops, adaptation and the
+  // attraction ids other days exclude).
+  const weatherSnapshotRef = useRef<{
+    dayNumber: number | null;
+    itinerary: GeneratedItinerary;
+    adaptation: ItineraryAdaptation;
+    selectedAttractionIds: string[];
+  } | null>(null);
+
   const resultsRef = useRef<HTMLDivElement>(null);
   // Keep scroll functions fresh without adding them to useCallback deps
   const scrollToResultsRef = useRef<() => void>(() => {});
@@ -130,6 +142,7 @@ export function PlannerWorkspace() {
       setExpandedDayIndex(null);
       setLoadPreferences(null);
       dayDrafts.current.clear();
+      weatherSnapshotRef.current = null;
       updateAbortRef.current?.abort();
       setIsUpdatingDay(false);
       setIsExtendingDays(false);
@@ -147,6 +160,7 @@ export function PlannerWorkspace() {
     setActiveDayIndex(0);
     setExpandedDayIndex(0);
     dayDrafts.current.clear();
+    weatherSnapshotRef.current = null;
     // Scroll to results after React commits the new plan
     setTimeout(() => scrollToResultsRef.current(), 50);
   }, []);
@@ -185,24 +199,43 @@ export function PlannerWorkspace() {
     [expandedDayIndex, activeDayIndex, itineraryPlan]
   );
 
-  const handleUpdateDay = useCallback(
-    async (dayNumber: number) => {
+  // Single day-scoped regeneration path, shared by "Update this day" (the
+  // debounced multi-day update) and the Weather Simulation panel. `dayNumber`
+  // is null for single-day plans, where the plan's own itinerary is the day.
+  // Only the targeted day's slice of state is replaced; every other day is
+  // left untouched and its attractions stay excluded from this request.
+  const regenerateDay = useCallback(
+    async (
+      dayNumber: number | null,
+      options?: { weatherOverride?: WeatherOverride }
+    ): Promise<GeneratedItinerary | null> => {
       const prefsToUse = currentPreferencesRef.current;
-      if (!prefsToUse || !itineraryPlan?.days) return;
+      if (!prefsToUse) return null;
+
+      const days = itineraryPlan?.days;
+      if (dayNumber !== null && !days) return null;
 
       updateAbortRef.current?.abort();
       const abortController = new AbortController();
       updateAbortRef.current = abortController;
 
-      const dayIndex = itineraryPlan.days.findIndex((d) => d.dayNumber === dayNumber);
-      const otherDayIds = itineraryPlan.days
-        .filter((d) => d.dayNumber !== dayNumber)
-        .flatMap((d) => d.selectedAttractionIds);
+      const dayIndex =
+        dayNumber !== null && days
+          ? days.findIndex((d) => d.dayNumber === dayNumber)
+          : -1;
+      const otherDayIds =
+        dayNumber !== null && days
+          ? days
+              .filter((d) => d.dayNumber !== dayNumber)
+              .flatMap((d) => d.selectedAttractionIds)
+          : [];
 
       setIsUpdatingDay(true);
-      setUpdateDayProgress(`Updating Day ${dayNumber}...`);
+      setUpdateDayProgress(
+        dayNumber !== null ? `Updating Day ${dayNumber}...` : "Updating itinerary..."
+      );
       setUpdateDayError(null);
-      scrollToDayCardRef.current(dayNumber);
+      if (dayNumber !== null) scrollToDayCardRef.current(dayNumber);
 
       try {
         const response = await fetch("/api/itinerary", {
@@ -211,39 +244,56 @@ export function PlannerWorkspace() {
           body: JSON.stringify({
             preferences: prefsToUse,
             excludeAttractionIds: otherDayIds,
+            ...(options?.weatherOverride
+              ? { weatherOverride: options.weatherOverride }
+              : {}),
           }),
           signal: abortController.signal,
         });
 
         const result = (await response.json()) as ItineraryApiResponse;
 
-        if (abortController.signal.aborted) return;
+        if (abortController.signal.aborted) return null;
 
         if (!response.ok || !result.success) {
           throw new Error(result.success ? "Failed to update day" : result.error);
         }
 
         const dayPlan = buildDayPlan(
-          dayNumber,
+          dayNumber ?? 1,
           result as ItinerarySuccessResponse,
           prefsToUse
         );
 
         setItineraryPlan((prev) => {
-          if (!prev?.days) return prev;
+          if (!prev) return prev;
+          if (dayNumber !== null) {
+            if (!prev.days) return prev;
+            return {
+              ...prev,
+              days: prev.days.map((d) => (d.dayNumber === dayNumber ? dayPlan : d)),
+            };
+          }
           return {
             ...prev,
-            days: prev.days.map((d) => (d.dayNumber === dayNumber ? dayPlan : d)),
+            itinerary: dayPlan.itinerary,
+            adaptation: dayPlan.adaptation,
+            selectedAttractionIds: dayPlan.selectedAttractionIds,
           };
         });
 
-        dayDrafts.current.delete(dayNumber);
-        if (dayIndex >= 0) setExpandedDayIndex(dayIndex);
+        if (dayNumber !== null) {
+          dayDrafts.current.delete(dayNumber);
+          if (dayIndex >= 0) setExpandedDayIndex(dayIndex);
+        }
+
+        return dayPlan.itinerary;
       } catch (error) {
-        if (abortController.signal.aborted) return;
-        setUpdateDayError(
-          error instanceof Error ? error.message : "Failed to update day"
-        );
+        if (abortController.signal.aborted) return null;
+        const message =
+          error instanceof Error ? error.message : "Failed to update day";
+        setUpdateDayError(message);
+        throw error instanceof Error ? error : new Error(message);
       } finally {
         if (!abortController.signal.aborted) {
           setIsUpdatingDay(false);
@@ -253,6 +303,17 @@ export function PlannerWorkspace() {
       }
     },
     [itineraryPlan]
+  );
+
+  const handleUpdateDay = useCallback(
+    async (dayNumber: number) => {
+      try {
+        await regenerateDay(dayNumber);
+      } catch {
+        // regenerateDay already surfaced the failure via updateDayError.
+      }
+    },
+    [regenerateDay]
   );
 
   // Auto-update active day after debounce when preferences change in multi-day mode
@@ -416,6 +477,79 @@ export function PlannerWorkspace() {
     []
   );
 
+  const activeDayItinerary =
+    isMultiDayPlan && itineraryPlan?.days
+      ? (itineraryPlan.days[visibleActiveDayIndex]?.itinerary ?? itineraryPlan.itinerary)
+      : (itineraryPlan?.itinerary ?? null);
+
+  const handleWeatherSimulate = useCallback(
+    async (condition: WeatherOverride): Promise<GeneratedItinerary | null> => {
+      if (!itineraryPlan) return null;
+
+      const dayNumber = isMultiDayPlan ? activeDayNumber : null;
+      const activeDay =
+        isMultiDayPlan && itineraryPlan.days
+          ? itineraryPlan.days[visibleActiveDayIndex]
+          : null;
+
+      // Capture the pre-simulation day once, or re-capture when the panel has
+      // moved to a different day.
+      const snapshot = weatherSnapshotRef.current;
+      if (!snapshot || snapshot.dayNumber !== dayNumber) {
+        weatherSnapshotRef.current = activeDay
+          ? {
+              dayNumber,
+              itinerary: activeDay.itinerary,
+              adaptation: activeDay.adaptation,
+              selectedAttractionIds: activeDay.selectedAttractionIds,
+            }
+          : {
+              dayNumber,
+              itinerary: itineraryPlan.itinerary,
+              adaptation: itineraryPlan.adaptation,
+              selectedAttractionIds: itineraryPlan.selectedAttractionIds ?? [],
+            };
+      }
+
+      return regenerateDay(dayNumber, { weatherOverride: condition });
+    },
+    [activeDayNumber, isMultiDayPlan, itineraryPlan, regenerateDay, visibleActiveDayIndex]
+  );
+
+  const handleWeatherReset = useCallback(() => {
+    const snapshot = weatherSnapshotRef.current;
+    if (!snapshot) return;
+
+    setItineraryPlan((prev) => {
+      if (!prev) return prev;
+      if (snapshot.dayNumber !== null) {
+        if (!prev.days) return prev;
+        return {
+          ...prev,
+          days: prev.days.map((d) =>
+            d.dayNumber === snapshot.dayNumber
+              ? {
+                  ...d,
+                  itinerary: snapshot.itinerary,
+                  adaptation: snapshot.adaptation,
+                  selectedAttractionIds: snapshot.selectedAttractionIds,
+                }
+              : d
+          ),
+        };
+      }
+      return {
+        ...prev,
+        itinerary: snapshot.itinerary,
+        adaptation: snapshot.adaptation,
+        selectedAttractionIds: snapshot.selectedAttractionIds,
+      };
+    });
+
+    weatherSnapshotRef.current = null;
+    setUpdateDayError(null);
+  }, []);
+
   const isDriving = currentPreferences?.transportMode === "driving";
 
   return (
@@ -456,6 +590,17 @@ export function PlannerWorkspace() {
               </p>
             </div>
           )
+        ) : null}
+
+        {itineraryPlan && currentPreferences && activeDayItinerary ? (
+          <WeatherSimulationPanel
+            key={isMultiDayPlan ? `weather-day-${visibleActiveDayIndex}` : "weather-single"}
+            itinerary={activeDayItinerary}
+            onSimulate={handleWeatherSimulate}
+            onReset={handleWeatherReset}
+            isBusy={isUpdatingDay || isGenerating}
+            dayLabel={activeDayNumber !== null ? `Day ${activeDayNumber}` : undefined}
+          />
         ) : null}
       </aside>
 

@@ -1065,6 +1065,13 @@ section[id] {
   padding-left: 18px;
 }
 
+/* Keep the adaptation summary compact: long lists scroll inside the panel
+   rather than pushing the map and stop cards below the fold. */
+.adaptation-detail-group ul {
+  max-height: 148px;
+  overflow-y: auto;
+}
+
 .adaptation-detail-group {
   display: grid;
   gap: 6px;
@@ -1075,6 +1082,43 @@ section[id] {
 .adaptation-detail-group strong {
   font-size: 0.88rem;
 }
+
+/* Collapsed-by-default "Affected attractions" disclosure. */
+.adaptation-affected > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.adaptation-affected > summary::-webkit-details-marker {
+  display: none;
+}
+
+.adaptation-affected > summary:hover .adaptation-affected-hint {
+  color: var(--primary-strong);
+}
+
+.adaptation-affected-hint {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* Label text lives in CSS so it can track the disclosure state; the span is
+   decorative and <details> already exposes open/closed to assistive tech. */
+.adaptation-affected-hint::after {
+  content: "show details";
+}
+
+.adaptation-affected[open] > summary .adaptation-affected-hint::after {
+  content: "hide details";
+}
+
 
 .itinerary-list {
   display: grid;
@@ -1829,7 +1873,8 @@ section[id] {
 
 /* ── Traffic simulation panel ─────────────────────────── */
 
-.traffic-panel {
+.traffic-panel,
+.weather-panel {
   margin-top: 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1838,7 +1883,8 @@ section[id] {
   overflow: hidden;
 }
 
-.traffic-panel-toggle {
+.traffic-panel-toggle,
+.weather-panel-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1854,15 +1900,18 @@ section[id] {
   transition: background-color 180ms ease;
 }
 
-.traffic-panel-toggle:hover {
+.traffic-panel-toggle:hover,
+.weather-panel-toggle:hover {
   background: var(--primary-soft);
 }
 
-.traffic-panel-toggle-label {
+.traffic-panel-toggle-label,
+.weather-panel-toggle-label {
   font-size: 0.92rem;
 }
 
-.traffic-panel-toggle-icon {
+.traffic-panel-toggle-icon,
+.weather-panel-toggle-icon {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -1877,20 +1926,23 @@ section[id] {
   line-height: 1;
 }
 
-.traffic-panel-body {
+.traffic-panel-body,
+.weather-panel-body {
   display: grid;
   gap: 14px;
   border-top: 1px solid var(--line);
   padding: 16px;
 }
 
-.traffic-panel-grid {
+.traffic-panel-grid,
+.weather-panel-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.traffic-severity-hint {
+.traffic-severity-hint,
+.weather-hint {
   color: var(--muted);
   font-size: 0.85rem;
   line-height: 1.5;
@@ -1900,21 +1952,25 @@ section[id] {
   color: var(--danger);
 }
 
-.traffic-simulate-btn {
+.traffic-simulate-btn,
+.weather-simulate-btn {
   width: 100%;
 }
 
-.traffic-panel-actions {
+.traffic-panel-actions,
+.weather-panel-actions {
   display: flex;
   gap: 8px;
 }
 
-.traffic-panel-actions .traffic-simulate-btn {
+.traffic-panel-actions .traffic-simulate-btn,
+.weather-panel-actions .weather-simulate-btn {
   flex: 1 1 auto;
   width: auto;
 }
 
-.traffic-notification {
+.traffic-notification,
+.weather-notification {
   border-radius: var(--radius);
   padding: 12px 14px;
   font-size: 0.9rem;
@@ -1928,16 +1984,27 @@ section[id] {
   background: var(--danger-soft);
 }
 
-.traffic-notification-warning {
+.traffic-notification-warning,
+.weather-notification-warning {
   border: 1px solid rgba(180, 120, 24, 0.3);
   color: var(--amber);
   background: var(--amber-soft, rgba(251, 191, 36, 0.08));
 }
 
-.traffic-notification-info {
+.traffic-notification-info,
+.weather-notification-info {
   border: 1px solid var(--line);
   color: var(--muted);
   background: var(--primary-soft);
+}
+
+.weather-panel-readout {
+  gap: 6px;
+}
+
+.weather-panel-readout .weather-hint {
+  margin: 0;
+  align-self: center;
 }
 
 .traffic-panel-disabled {

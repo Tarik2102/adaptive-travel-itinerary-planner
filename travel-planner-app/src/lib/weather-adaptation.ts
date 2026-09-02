@@ -82,10 +82,16 @@ export function applyWeatherAdaptation(
   const attractionsById = new Map(
     attractions.map((attraction) => [attraction.id, attraction])
   );
-  const affectedAttractions = getAffectedAttractions(
-    rankedAttractions,
-    attractionsById
-  );
+  // Whether bad weather deprioritized anything at all in the ranked pool. This
+  // is what `applied`/`weatherCondition` have always been gated on, so it stays
+  // computed over the full pool — narrowing below is reporting-only.
+  const hasDeprioritizedOutdoor = rankedAttractions.some((rank) => {
+    const attraction = attractionsById.get(rank.id);
+    return (
+      attraction !== undefined &&
+      inferAttractionEnvironment(attraction) === "outdoor"
+    );
+  });
   const adjustedRanks = rankedAttractions
     .map((rank, index) => {
       const attraction = attractionsById.get(rank.id);
@@ -107,6 +113,12 @@ export function applyWeatherAdaptation(
     })
     .map(({ rank }) => rank);
 
+  const affectedAttractions = getAffectedAttractions(
+    rankedAttractions,
+    adjustedRanks,
+    attractionsById,
+    maxAttractions
+  );
   const replacedAttractions = getReplacedAttractions(
     rankedAttractions,
     adjustedRanks,
@@ -117,9 +129,9 @@ export function applyWeatherAdaptation(
   return {
     rankedAttractions: adjustedRanks,
     adaptation: createEmptyAdaptation({
-      applied: affectedAttractions.length > 0,
-      reasons: affectedAttractions.length > 0 ? [WEATHER_REASON] : [],
-      ...(affectedAttractions.length > 0 ? { weatherCondition } : {}),
+      applied: hasDeprioritizedOutdoor,
+      reasons: hasDeprioritizedOutdoor ? [WEATHER_REASON] : [],
+      ...(hasDeprioritizedOutdoor ? { weatherCondition } : {}),
       ...(affectedAttractions.length > 0 ? { affectedAttractions } : {}),
       ...(replacedAttractions.length > 0 ? { replacedAttractions } : {}),
     }),
@@ -130,6 +142,21 @@ export function isBadWeatherCondition(condition: string): boolean {
   return BAD_WEATHER_CONDITIONS.has(condition.trim().toLowerCase());
 }
 
+/**
+ * Resolves an attraction's environment from the most authoritative source
+ * available, in this order:
+ *
+ *   1. `indoor_outdoor` — the curated column, set on manual_seed rows only.
+ *   2. `is_indoor` / `is_outdoor` — the booleans the OSM import populates.
+ *      97% of active attractions have a null `indoor_outdoor` but a definite
+ *      value here, so for most of the catalogue this is the real signal.
+ *   3. Keyword inference over name/category/description — a safety net for the
+ *      handful of rows that carry no structured environment data at all.
+ *
+ * A row flagged as both indoor and outdoor is ambiguous under either structured
+ * source and falls through to the keyword pass, matching how
+ * `indoor_outdoor = 'both'` has always been treated.
+ */
 export function inferAttractionEnvironment(
   attraction: Attraction
 ): AttractionEnvironment {
@@ -146,6 +173,17 @@ export function inferAttractionEnvironment(
     explicitEnvironment.includes("outdoor") &&
     !explicitEnvironment.includes("indoor")
   ) {
+    return "outdoor";
+  }
+
+  const isIndoor = attraction.is_indoor === true;
+  const isOutdoor = attraction.is_outdoor === true;
+
+  if (isIndoor && !isOutdoor) {
+    return "indoor";
+  }
+
+  if (isOutdoor && !isIndoor) {
     return "outdoor";
   }
 
@@ -169,11 +207,35 @@ export function inferAttractionEnvironment(
   return "unknown";
 }
 
+/**
+ * The outdoor attractions genuinely affected by the weather penalty for THIS
+ * request: those holding a selectable rank before it was applied, plus those
+ * still holding one after. The ranked pool passed in covers the whole active
+ * catalogue, and its ordering is already interest-driven, so this window is the
+ * set that was actually in contention for the traveller's day. Anything further
+ * down was never going to be selected, and reporting it buried the meaningful
+ * changes under a list of the entire outdoor catalogue.
+ *
+ * Scoping only affects what is reported — the -0.25 penalty is applied across
+ * the full pool exactly as before, and `applied`/`weatherCondition` still
+ * reflect the unscoped outcome.
+ */
 function getAffectedAttractions(
-  rankedAttractions: RankedAttraction[],
-  attractionsById: Map<number, Attraction>
+  originalRanks: RankedAttraction[],
+  adjustedRanks: RankedAttraction[],
+  attractionsById: Map<number, Attraction>,
+  maxAttractions: number
 ): AffectedAttraction[] {
-  return rankedAttractions.flatMap((rank) => {
+  const contendingIds = new Set([
+    ...originalRanks.slice(0, maxAttractions).map((rank) => rank.id),
+    ...adjustedRanks.slice(0, maxAttractions).map((rank) => rank.id),
+  ]);
+
+  return originalRanks.flatMap((rank) => {
+    if (!contendingIds.has(rank.id)) {
+      return [];
+    }
+
     const attraction = attractionsById.get(rank.id);
 
     if (!attraction || inferAttractionEnvironment(attraction) !== "outdoor") {

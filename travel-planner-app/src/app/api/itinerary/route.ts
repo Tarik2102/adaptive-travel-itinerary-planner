@@ -18,6 +18,10 @@ import {
   type RoutingMetadata,
 } from "@/lib/routing";
 import { getCurrentWeather, type WeatherInfo } from "@/lib/weather";
+import {
+  createOverrideWeather,
+  weatherOverrideValues,
+} from "@/lib/weather-override";
 import { getRankedCandidates } from "@/lib/recommendation-ranking";
 import { applyWeatherAdaptation } from "@/lib/weather-adaptation";
 import type { Attraction } from "@/types/attraction";
@@ -67,7 +71,7 @@ const itineraryRequestSchema = z.object({
   excludeAttractionIds: z.array(z.string().trim().min(1)).optional().default([]),
   // Evaluation-harness control parameters (all optional; absent = current behaviour).
   mode: z.enum(["adaptive", "static"]).optional(),
-  weatherOverride: z.enum(["clear", "rain"]).optional(),
+  weatherOverride: z.enum(weatherOverrideValues).optional(),
   recommender: z.enum(["content", "popularity", "random"]).optional(),
 });
 
@@ -87,6 +91,8 @@ type AttractionRow = QueryResultRow & {
   rating: string | number | null;
   price_level: string | null;
   indoor_outdoor: string | null;
+  is_indoor: boolean | null;
+  is_outdoor: boolean | null;
   opening_time: string | null;
   closing_time: string | null;
   is_featured: boolean | null;
@@ -284,13 +290,6 @@ function computeSmartMaxStops(preferences: PlannerPreferences): number {
   return Math.max(1, Math.min(12, smartMax));
 }
 
-function createOverrideWeather(weatherOverride: "clear" | "rain"): WeatherInfo {
-  if (weatherOverride === "rain") {
-    return { temperature: 15, condition: "rain", description: "simulated rain", isOutdoorRisk: true };
-  }
-  return { temperature: 20, condition: "clear", description: "simulated clear sky", isOutdoorRisk: false };
-}
-
 async function fetchAttractions(): Promise<Attraction[]> {
   const rows = await query<AttractionRow>(
     `SELECT
@@ -309,6 +308,8 @@ async function fetchAttractions(): Promise<Attraction[]> {
       rating,
       price_level,
       indoor_outdoor,
+      is_indoor,
+      is_outdoor,
       opening_time,
       closing_time,
       is_featured,
@@ -351,6 +352,8 @@ function normalizeAttraction(row: AttractionRow): Attraction {
     rating: row.rating === null ? null : toFiniteNumber(row.rating, 0),
     price_level: row.price_level,
     indoor_outdoor: row.indoor_outdoor,
+    is_indoor: row.is_indoor,
+    is_outdoor: row.is_outdoor,
     opening_time: row.opening_time,
     closing_time: row.closing_time,
     is_featured: row.is_featured ?? false,
